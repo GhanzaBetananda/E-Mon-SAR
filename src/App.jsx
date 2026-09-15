@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
+import Pimpinan from "./Pimpinan.jsx";
 import {
   VEHICLE_FULL,
   callGas,
@@ -148,7 +149,13 @@ function formatDateDisplay(dateStr) {
   return dateStr;
 }
 
+const PIMPINAN_CODE = "181115";
+
 function App() {
+  const [view, setView] = useState("form"); // "form" | "pimpinan"
+  const [showPin, setShowPin] = useState(false);
+  const [pin, setPin] = useState("");
+  const [pinError, setPinError] = useState("");
   const [activeTab, setActiveTab] = useState("form");
   const [currentSection, setCurrentSection] = useState(1);
   const [checkId, setCheckId] = useState(null);
@@ -272,6 +279,25 @@ function App() {
   function goToSection(section) {
     setCurrentSection(section);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function openPin() {
+    setPin("");
+    setPinError("");
+    setShowPin(true);
+  }
+
+  function submitPin(e) {
+    e?.preventDefault?.();
+    if (pin.trim() === PIMPINAN_CODE) {
+      setShowPin(false);
+      setPin("");
+      setPinError("");
+      setView("pimpinan");
+      window.scrollTo({ top: 0 });
+    } else {
+      setPinError("Kode salah. Masukkan 6 digit yang benar.");
+    }
   }
 
   function showAlert(title, text, icon = "warning") {
@@ -467,6 +493,10 @@ function App() {
   }, 0);
   const overallPct = Math.round((overallDone / 5) * 100);
 
+  if (view === "pimpinan") {
+    return <Pimpinan onExit={() => setView("form")} />;
+  }
+
   return (
     <div className="page">
       <header className="topbar">
@@ -489,14 +519,15 @@ function App() {
               <div className="brand-sub">E-Mon SAR &middot; Avignam Jagat Samagram</div>
             </div>
           </div>
-          <span className={`live-pill conn-${connMode}`} title="Status koneksi ke Google Sheet">
-            <span className="live-dot" />
-            {connMode === "embedded"
-              ? "Terhubung: Sheet"
-              : connMode === "webapp"
-                ? "Terhubung: Sheet"
-                : "Mode lokal"}
-          </span>
+          <div className="topbar-actions">
+            <span className={`live-pill conn-${connMode}`} title="Status koneksi ke Google Sheet">
+              <span className="live-dot" />
+              {connMode === "local" ? "Mode lokal" : "Terhubung: Sheet"}
+            </span>
+            <button type="button" className="lead-btn" onClick={openPin}>
+              Masuk Pimpinan
+            </button>
+          </div>
         </div>
       </header>
 
@@ -920,6 +951,37 @@ function App() {
           E-Mon SAR &middot; Rescue Car {VEHICLE_DATA.shortName} &middot; BASARNAS Banyuwangi
         </footer>
       </div>
+
+      {showPin && (
+        <div className="modal-overlay" onClick={() => setShowPin(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Login pimpinan">
+            <h2>Kode Pimpinan</h2>
+            <p>Masukkan kode 6 digit untuk membuka panel pimpinan.</p>
+            <form onSubmit={submitPin}>
+              <input
+                className="pin-input"
+                type="password"
+                inputMode="numeric"
+                autoComplete="off"
+                autoFocus
+                maxLength={6}
+                placeholder="••••••"
+                value={pin}
+                onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              />
+              {pinError && <div className="pin-error">{pinError}</div>}
+              <div className="modal-actions">
+                <button type="button" className="btn ghost" onClick={() => setShowPin(false)}>
+                  Batal
+                </button>
+                <button type="submit" className="btn primary" disabled={pin.length !== 6}>
+                  Masuk
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

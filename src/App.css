@@ -317,11 +317,56 @@ img { max-width: 100%; }
 .link-btn { border: 0; background: none; color: var(--accent); font-weight: 700; font-size: 12px; cursor: pointer; padding: 4px; text-decoration: underline; }
 
 /* ---------- koneksi Sheet ---------- */
-.live-pill { border: 1px solid var(--success-border); cursor: pointer; font-family: inherit; }
 .live-pill.conn-local { color: var(--warn); background: var(--warn-bg); border-color: var(--warn-border); }
 .live-pill.conn-local .live-dot { background: #f79009; box-shadow: 0 0 0 4px rgba(247,144,9,.15); }
 .live-pill.conn-webapp { color: #175cd3; background: #eff8ff; border-color: #b2ddff; }
 .live-pill.conn-webapp .live-dot { background: #2e90fa; box-shadow: 0 0 0 4px rgba(46,144,250,.15); }
+
+/* ---------- tombol & modal pimpinan ---------- */
+.topbar-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.lead-btn {
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: #fff;
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.lead-btn:hover { background: #1e293b; }
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(15, 23, 42, 0.5);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+}
+.modal {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  width: 100%;
+  max-width: 360px;
+  box-shadow: var(--shadow-lg);
+}
+.modal h2 { margin: 0 0 4px; font-size: 17px; }
+.modal p { margin: 0 0 14px; font-size: 13px; color: var(--muted); }
+.pin-input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.5em;
+  text-align: center;
+  outline: none;
+}
+.pin-input:focus { border-color: var(--ink); box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08); }
+.pin-error { margin-top: 8px; font-size: 12.5px; font-weight: 600; color: var(--danger); }
+.modal-actions { display: flex; gap: 8px; margin-top: 14px; }
+.modal-actions .btn { flex: 1; }
 .conn-card { border-style: dashed; }
 .conn-form { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; }
 .conn-form input {
