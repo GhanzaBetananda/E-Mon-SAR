@@ -1,0 +1,10 @@
+/* Base reset — semua styling utama ada di App.css */
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  padding: 0;
+  background: #f6f7f9;
+  color: #101828;
+}
+#root { min-height: 100vh; }
