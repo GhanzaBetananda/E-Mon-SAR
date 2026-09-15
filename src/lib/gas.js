@@ -1,44 +1,23 @@
 /**
  * Klien backend Google Apps Script (Sheet) untuk React.
- *
- * Urutan koneksi:
- *  1. Mode embedded  -> window.google.script.run (saat React dibundle ke HtmlService)
- *  2. Mode Web App   -> fetch POST ke URL /exec (VITE_GAS_URL atau setting lokal)
- *  3. Mode lokal     -> mock localStorage (supaya `npm run dev` tetap bisa diklik-klik)
- *
- * Code.gs Anda TIDAK perlu diubah logikanya. Cukup tambahkan file
- * `gas/ApiRouter.gs` (sudah disediakan di repo ini) ke project Apps Script
- * yang sama, lalu Deploy > New deployment > Web app.
+ * URL Web App dipaten di sini — tidak ada lagi kolom tempel URL di UI.
  */
 
-const URL_KEY = "emon_sar_gas_url";
 const LOCAL_KEY = "emon_sar_local_v1";
 
 export const VEHICLE_FULL = "Rescue Car - P 2006 ABC";
+
+// URL Web App Apps Script (paten). Ganti di sini kalau deploy ulang dengan URL baru.
+export const GAS_URL =
+  import.meta.env?.VITE_GAS_URL ||
+  "https://script.google.com/macros/s/AKfycbweW_Ruy0eZLddlE2wQfLTUwZrXzZnyzMRjiBqfn3QkGuj2caaYcnWRWYjreD1dKUSx_Q/exec";
 
 export function isEmbedded() {
   return Boolean(window.google?.script?.run);
 }
 
 export function getGasUrl() {
-  const fromStorage = (() => {
-    try {
-      return localStorage.getItem(URL_KEY) || "";
-    } catch {
-      return "";
-    }
-  })();
-  const fromEnv = import.meta.env?.VITE_GAS_URL || "";
-  return (fromStorage || fromEnv || "").trim();
-}
-
-export function setGasUrl(url) {
-  try {
-    if (!url) localStorage.removeItem(URL_KEY);
-    else localStorage.setItem(URL_KEY, url.trim());
-  } catch {
-    /* abaikan */
-  }
+  return (GAS_URL || "").trim();
 }
 
 export function getConnectionMode() {

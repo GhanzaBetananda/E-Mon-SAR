@@ -5,8 +5,6 @@ import {
   callGas,
   fileToCompressedDataUrl,
   getConnectionMode,
-  getGasUrl,
-  setGasUrl,
 } from "./lib/gas.js";
 
 const VEHICLE_DATA = {
@@ -182,9 +180,7 @@ function App() {
   const [filterBulan, setFilterBulan] = useState("");
   const [filterTahun, setFilterTahun] = useState("");
   const [historyLoaded, setHistoryLoaded] = useState(false);
-  const [connMode, setConnMode] = useState(() => getConnectionMode());
-  const [gasUrlInput, setGasUrlInput] = useState(() => getGasUrl());
-  const [showSettings, setShowSettings] = useState(false);
+  const [connMode] = useState(() => getConnectionMode());
 
   const currentItems = itemsBySection[currentSection];
 
@@ -392,7 +388,6 @@ function App() {
       }
     } catch (error) {
       console.error(error);
-      if (error?.code === "NO_BACKEND") setShowSettings(true);
       await showAlert("Gagal menyimpan", error?.message || "Terjadi kesalahan", "error");
     } finally {
       setSaving(false);
@@ -455,23 +450,10 @@ function App() {
     } catch (error) {
       console.error(error);
       setHistory([]);
-      if (error?.code === "NO_BACKEND") {
-        setShowSettings(true);
-        setActiveTab("form");
-      }
       await showAlert("Gagal memuat", error?.message || "Terjadi kesalahan", "error");
     } finally {
       setHistoryLoading(false);
     }
-  }
-
-  function handleSaveGasUrl(e) {
-    e?.preventDefault?.();
-    setGasUrl(gasUrlInput);
-    setConnMode(getConnectionMode());
-    setShowSettings(false);
-    loadDropdownData();
-    loadLastServiceInfo();
   }
 
   const sectionFilled = SECTIONS[currentSection].items.filter(
@@ -507,61 +489,18 @@ function App() {
               <div className="brand-sub">E-Mon SAR &middot; Avignam Jagat Samagram</div>
             </div>
           </div>
-          <button
-            type="button"
-            className={`live-pill conn-${connMode}`}
-            onClick={() => setShowSettings((v) => !v)}
-            title="Status koneksi ke Google Sheet — klik untuk pengaturan"
-          >
+          <span className={`live-pill conn-${connMode}`} title="Status koneksi ke Google Sheet">
             <span className="live-dot" />
             {connMode === "embedded"
               ? "Terhubung: Sheet"
               : connMode === "webapp"
-                ? "Terhubung: Web App"
-                : "Mode lokal — klik sambungkan"}
-          </button>
+                ? "Terhubung: Sheet"
+                : "Mode lokal"}
+          </span>
         </div>
       </header>
 
       <div className="wrap">
-        {showSettings && (
-          <section className="card conn-card">
-            <div className="card-head">
-              <div>
-                <h2>Sambungan Google Sheet</h2>
-                <p>
-                  Tempel URL Web App (<code>/exec</code>) dari Deploy Code.gs.
-                  Tanpa ini data hanya tersimpan lokal di browser.
-                </p>
-              </div>
-            </div>
-            <form className="conn-form" onSubmit={handleSaveGasUrl}>
-              <input
-                type="url"
-                placeholder="https://script.google.com/macros/s/AKf…/exec"
-                value={gasUrlInput}
-                onChange={(e) => setGasUrlInput(e.target.value)}
-              />
-              <button type="submit" className="btn primary">Simpan</button>
-              <button type="button" className="btn ghost" onClick={() => setShowSettings(false)}>
-                Tutup
-              </button>
-            </form>
-            <div className="conn-hint">
-              Deploy: Extensions → Apps Script → tempel <code>gas/ApiRouter.gs</code> ke project yang
-              sama dengan Code.gs → Deploy → New deployment → Web app → Execute as: Me → Who has
-              access: Anyone → copy URL-nya ke sini.
-            </div>
-          </section>
-        )}
-
-        {connMode === "local" && !showSettings && (
-          <button type="button" className="local-banner" onClick={() => setShowSettings(true)}>
-            <strong>Mode lokal aktif</strong>
-            <span> — data belum masuk Sheet. Klik untuk menempel URL Web App.</span>
-          </button>
-        )}
-
         <section className="hero">
           <div>
             <div className="eyebrow">Kendaraan operasional &middot; Kantor Tipe B</div>
@@ -979,10 +918,6 @@ function App() {
 
         <footer className="foot">
           E-Mon SAR &middot; Rescue Car {VEHICLE_DATA.shortName} &middot; BASARNAS Banyuwangi
-          <br />
-          <button type="button" className="link-btn" onClick={() => setShowSettings((v) => !v)}>
-            {connMode === "local" ? "Sambungkan ke Google Sheet" : "Pengaturan koneksi Sheet"}
-          </button>
         </footer>
       </div>
     </div>

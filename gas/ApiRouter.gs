@@ -1,20 +1,9 @@
 /**
- * ApiRouter.gs — TEMPEL file ini ke project Apps Script yang SAMA dengan Code.gs Anda.
- * Jangan hapus / ubah Code.gs yang sudah ada. File ini hanya menambahkan
- * jembatan JSON agar React (Vite) bisa memanggil fungsi Code.gs via fetch.
- *
- * Fungsi Code.gs yang dipakai React (nama HARUS sama persis):
- *   getDropdownData() | getLastServiceInfo(vehicle) | saveSectionData(formData)
- *   saveKesimpulan(formData) | getHistoryData(filter)
- *
- * Cara deploy:
- *  1. Extensions > Apps Script > tambah file ApiRouter.gs > paste isi ini > Save
- *  2. Deploy > New deployment > type: Web app
- *     - Execute as: Me
- *     - Who has access: Anyone
- *  3. Copy URL .../exec ke React: .env (VITE_GAS_URL) atau kolom
- *     "Pengaturan koneksi Sheet" di footer aplikasi.
- *  4. Setiap ubah Code.gs: Deploy > Manage deployments > Edit > Version: New version.
+ * ApiRouter.gs — ALTERNATIF kalau Code.gs lama mau dipertahankan.
+ * PENTING: jangan pakai file ini BERSAMAAN dengan gas/Code.gs yang baru,
+ * karena keduanya punya doPost/doGet (bentrok). Pilih SALAH SATU:
+ *   A. Pakai gas/Code.gs lengkap (disarankan, sudah termasuk router ini), ATAU
+ *   B. Pertahankan Code.gs lama Anda + tambah file ini sebagai file ke-2.
  */
 
 function _json(data) {
