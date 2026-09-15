@@ -385,21 +385,70 @@ img { max-width: 100%; }
 /* ---------- responsive ---------- */
 @media (max-width: 720px) {
   .wrap { padding: 14px 12px 32px; }
+
+  /* Header: ringkas, aksi jadi baris sendiri */
+  .topbar-inner { padding: 10px 12px; gap: 8px; flex-wrap: wrap; }
+  .brand { gap: 9px; flex: 1 1 auto; min-width: 0; }
+  .brand-marks img { height: 30px; width: 30px; }
+  .brand-title { font-size: 13.5px; }
+  .topbar-actions { flex: 1 1 100%; gap: 8px; }
+  .topbar-actions .live-pill { font-size: 11px; padding: 5px 10px; }
+  .lead-btn { flex: 1; text-align: center; padding: 9px 10px; min-height: 40px; }
+
   .hero { grid-template-columns: 1fr; padding: 18px; }
-  .hero h1 { font-size: 21px; }
-  .tabs { top: 60px; }
-  .stepper { grid-template-columns: repeat(5, 1fr); gap: 6px; overflow-x: auto; }
-  .step-btn { flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 9px 6px; }
-  .step-name { white-space: normal; font-size: 10.5px; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .hero h1 { font-size: 20px; }
+  .plate { font-size: 12px; }
+
+  /* Tab tidak sticky di HP supaya tidak menutupi konten */
+  .tabs { position: static; }
+
+  /* Stepper: geser horizontal, tiap kartu terbaca */
+  .stepper {
+    display: flex;
+    overflow-x: auto;
+    gap: 8px;
+    padding-bottom: 6px;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+  .stepper .step { flex: 0 0 128px; scroll-snap-align: start; }
+  .step-btn { flex-direction: column; align-items: flex-start; text-align: left; gap: 7px; padding: 10px; min-height: 96px; }
+  .step-name { white-space: normal; font-size: 11.5px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .step-sub { display: none; }
+
   .card { padding: 16px 14px; }
   .field-grid.cols-2, .field-grid.cols-3, .service-row { grid-template-columns: 1fr; }
+
+  /* Cegah auto-zoom iOS: input minimal 16px */
+  .field input, .field select, .ghost-input { font-size: 16px; }
+
+  /* Tombol status: teks panjang tetap muat */
+  .seg-btn { font-size: 11.5px; padding: 9px 4px; line-height: 1.3; min-height: 44px; }
+
   .check-bottom { grid-template-columns: 1fr; }
-  .upload-btn { justify-content: center; }
-  .action-bar { flex-wrap: wrap; }
+  .upload-btn { justify-content: center; min-height: 44px; }
+  .file-name { overflow-wrap: anywhere; }
+
+  .action-bar { flex-wrap: wrap; gap: 8px; }
   .action-hint { order: -1; flex-basis: 100%; }
-  .action-bar .btn { flex: 1; text-align: center; }
+  .action-bar .btn { flex: 1; text-align: center; min-height: 46px; }
+
   .history-grid { grid-template-columns: 1fr 1fr; }
+  .history-note, .issue-note { overflow-wrap: anywhere; }
+  .issue-status { justify-self: start; }
+
   .brand-sub { display: none; }
   .conn-form { grid-template-columns: 1fr; }
+
+  .modal { padding: 20px 18px; }
+}
+
+@media (max-width: 480px) {
+  .hero h1 { font-size: 18px; }
+  .hero-desc { font-size: 12.5px; }
+  .history-grid { grid-template-columns: 1fr; }
+  .stepper .step { flex-basis: 118px; }
+  .pin-input { letter-spacing: 0.35em; font-size: 20px; }
+  .modal-actions { flex-direction: column-reverse; }
+  .modal-actions .btn { min-height: 46px; }
 }

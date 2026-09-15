@@ -124,9 +124,21 @@
 .pim-photo { font-size: 12px; font-weight: 700; color: var(--accent); }
 
 @media (max-width: 720px) {
-  .pim-hero { flex-direction: column; align-items: flex-start; }
+  .pim-hero { flex-direction: column; align-items: stretch; }
   .pim-hero h1 { font-size: 18px; }
+  .pim-hero .btn { min-height: 46px; }
   .pim-stats { grid-template-columns: repeat(2, 1fr); }
+  .pim-stat-num { font-size: 22px; }
+  .pim-filters .field-grid { grid-template-columns: 1fr; }
+  .pim-filters .btn { min-height: 46px; }
+  .pim-back { padding: 9px 12px; min-height: 40px; }
+  .pim-item-top { flex-wrap: wrap; }
   .pim-issue { flex-direction: column; }
-  .pim-issue-side { align-items: flex-start; flex-direction: row; }
+  .pim-issue-side { align-items: flex-start; flex-direction: row; flex-wrap: wrap; }
+}
+
+@media (max-width: 480px) {
+  .pim-stats { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .pim-stat { padding: 12px; }
+  .pim-stat-num { font-size: 20px; }
 }
