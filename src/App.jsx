@@ -288,7 +288,7 @@ function App() {
     if (empty.length > 0) {
       const yakin = await confirmIncomplete(
         `Bagian ${currentSection} belum lengkap`,
-        `Masih ada ${empty.length} item belum dinilai: ${empty.join(", ")}. Yakin lanjut ke Bagian ${section} (${SECTIONS[section].title})?`
+        `Masih ada ${empty.length} item belum dinilai. Yakin lanjut ke Bagian ${section} (${SECTIONS[section].title})?`
       );
       if (!yakin) return;
     }
@@ -339,7 +339,7 @@ function App() {
     if (emptyItems.length > 0) {
       const yakin = await confirmIncomplete(
         `Bagian ${currentSection} belum lengkap`,
-        `Masih ada ${emptyItems.length} item belum dinilai: ${emptyItems.join(", ")}. Yakin simpan dan lanjut dengan kondisi ini?`
+        `Masih ada ${emptyItems.length} item belum dinilai. Yakin simpan dan lanjut dengan kondisi ini?`
       );
       if (!yakin) return;
     }

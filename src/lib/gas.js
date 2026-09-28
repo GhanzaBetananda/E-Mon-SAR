@@ -6,10 +6,11 @@
 const LOCAL_KEY = "emon_sar_local_v1";
 
 export const VEHICLES = [
-  { fullName: "Rescue Car - P 2006 ABC", shortName: "P 2006 ABC", unit: "Rescue Car" },
-  { fullName: "Rescue Truck - P 8125 AB", shortName: "P 8125 AB", unit: "Rescue Truck" },
-  { fullName: "Double Cabin - P 3450 XY", shortName: "P 3450 XY", unit: "Double Cabin" },
-  { fullName: "Ambulance - P 7788 MD", shortName: "P 7788 MD", unit: "Ambulance" },
+  { fullName: "Rescue Truck - W 8653 NP", shortName: "W 8653 NP", unit: "Rescue Truck" },
+  { fullName: "Rescue Car Carrier - W 8656 NP", shortName: "W 8656 NP", unit: "Rescue Car Carrier" },
+  { fullName: "Rescue Car - W 8658 NP", shortName: "W 8658 NP", unit: "Rescue Car" },
+  { fullName: "Motor Trail - B 3269 PDO", shortName: "B 3269 PDO", unit: "Motor Trail" },
+  { fullName: "Motor Trail - B 3838 PFO", shortName: "B 3838 PFO", unit: "Motor Trail" },
 ];
 
 export const VEHICLE_FULL = VEHICLES[0].fullName;

@@ -29,12 +29,13 @@ const CONFIG = {
   // ID folder Drive untuk foto bukti — ganti dengan ID folder Anda
   FOLDER_ID: '1fWHuACnyNWgd5dq7lASJg38w2A-cuHZ1',
   // HARUS sama persis dengan VEHICLES di src/lib/gas.js React
-  VEHICLE_FULL: 'Rescue Car - P 2006 ABC',
+  VEHICLE_FULL: 'Rescue Truck - W 8653 NP',
   VEHICLE_LIST: [
-    'Rescue Car - P 2006 ABC',
-    'Rescue Truck - P 8125 AB',
-    'Double Cabin - P 3450 XY',
-    'Ambulance - P 7788 MD'
+    'Rescue Truck - W 8653 NP',
+    'Rescue Car Carrier - W 8656 NP',
+    'Rescue Car - W 8658 NP',
+    'Motor Trail - B 3269 PDO',
+    'Motor Trail - B 3838 PFO'
   ]
 };
 

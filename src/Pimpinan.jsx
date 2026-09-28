@@ -136,7 +136,7 @@ export default function Pimpinan({ onExit }) {
       <div className="wrap pim-wrap">
         <section className="pim-hero">
           <div>
-            <div className="eyebrow">Rescue Car &mdash; P 2006 ABC</div>
+            <div className="eyebrow">Semua kendaraan operasional</div>
             <h1>Temuan Tidak Standart &amp; Rusak</h1>
             <p>
               {filterDate
