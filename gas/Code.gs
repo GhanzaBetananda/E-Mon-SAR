@@ -28,8 +28,14 @@ const CONFIG = {
   SHEET_MASALAH: 'MASALAH',
   // ID folder Drive untuk foto bukti — ganti dengan ID folder Anda
   FOLDER_ID: '1fWHuACnyNWgd5dq7lASJg38w2A-cuHZ1',
-  // HARUS sama persis dengan VEHICLE_FULL di src/lib/gas.js React
-  VEHICLE_FULL: 'Rescue Car - P 2006 ABC'
+  // HARUS sama persis dengan VEHICLES di src/lib/gas.js React
+  VEHICLE_FULL: 'Rescue Car - P 2006 ABC',
+  VEHICLE_LIST: [
+    'Rescue Car - P 2006 ABC',
+    'Rescue Truck - P 8125 AB',
+    'Double Cabin - P 3450 XY',
+    'Ambulance - P 7788 MD'
+  ]
 };
 
 // ==================== API ROUTER (jembatan React/Vite <-> Code.gs) ====================
@@ -385,12 +391,13 @@ function saveSectionData(formData) {
 
     var rowData = [];
     var tglPemeriksaan = formatDateOnly(formData.tanggal);
+    var tipeKendaraan = formData.tipeKendaraan || formData.vehicleFullName || CONFIG.VEHICLE_FULL;
 
     rowData.push(id);
     rowData.push(tglPemeriksaan);
     rowData.push(formData.namaPemeriksa || '');
     rowData.push(formData.koorPengelola || '');
-    rowData.push(CONFIG.VEHICLE_FULL);
+    rowData.push(tipeKendaraan);
     rowData.push(formData.kmKendaraan || '');
     rowData.push(formatDateOnly(formData.tanggalService));
 
@@ -523,7 +530,7 @@ function saveKesimpulan(formData) {
       formatDateOnly(formData.tanggal),
       formData.namaPemeriksa,
       formData.koorPengelola,
-      CONFIG.VEHICLE_FULL,
+      formData.tipeKendaraan || formData.vehicleFullName || CONFIG.VEHICLE_FULL,
       formData.kmKendaraan,
       formatDateOnly(formData.tanggalService),
       formData.kesimpulan,
@@ -636,10 +643,14 @@ function getHistoryData(filterData) {
     var filterBulan = (filterData && filterData.bulan && filterData.bulan !== 'undefined' && filterData.bulan !== 'null') ? String(filterData.bulan).trim() : '';
     var filterTahun = (filterData && filterData.tahun && filterData.tahun !== 'undefined' && filterData.tahun !== 'null') ? String(filterData.tahun).trim() : '';
 
+    var filterVehicle = (filterData && (filterData.vehicle || filterData.tipeKendaraan || filterData.vehicleFullName) || '').toString().trim().toLowerCase();
     var result = Object.keys(grouped).map(function (k) { return grouped[k]; }).filter(function (r) {
-      var vTarget = CONFIG.VEHICLE_FULL.toLowerCase().trim();
-      var vCurrent = String(r.tipeKendaraan || '').toLowerCase().trim();
-      if (vCurrent.indexOf(vTarget) === -1 && vTarget.indexOf(vCurrent) === -1) return false;
+      // Kalau filter kendaraan diisi -> saring ke kendaraan itu saja.
+      // Kalau kosong -> tampilkan semua kendaraan (mendukung multi-kendaraan).
+      if (filterVehicle) {
+        var vCurrent = String(r.tipeKendaraan || '').toLowerCase().trim();
+        if (vCurrent.indexOf(filterVehicle) === -1 && filterVehicle.indexOf(vCurrent) === -1) return false;
+      }
 
       if (filterBulan && filterBulan !== '' && filterBulan !== 'all' && !isNaN(filterBulan)) {
         if (!r.tanggalObj) return false;

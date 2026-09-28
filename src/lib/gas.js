@@ -5,7 +5,14 @@
 
 const LOCAL_KEY = "emon_sar_local_v1";
 
-export const VEHICLE_FULL = "Rescue Car - P 2006 ABC";
+export const VEHICLES = [
+  { fullName: "Rescue Car - P 2006 ABC", shortName: "P 2006 ABC", unit: "Rescue Car" },
+  { fullName: "Rescue Truck - P 8125 AB", shortName: "P 8125 AB", unit: "Rescue Truck" },
+  { fullName: "Double Cabin - P 3450 XY", shortName: "P 3450 XY", unit: "Double Cabin" },
+  { fullName: "Ambulance - P 7788 MD", shortName: "P 7788 MD", unit: "Ambulance" },
+];
+
+export const VEHICLE_FULL = VEHICLES[0].fullName;
 
 // URL Web App Apps Script (paten). Ganti di sini kalau deploy ulang dengan URL baru.
 export const GAS_URL =

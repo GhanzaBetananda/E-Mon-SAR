@@ -1,19 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
 import Pimpinan from "./Pimpinan.jsx";
 import {
-  VEHICLE_FULL,
+  VEHICLES,
   callGas,
   fileToCompressedDataUrl,
   getConnectionMode,
 } from "./lib/gas.js";
-
-const VEHICLE_DATA = {
-  // HARUS sama persis dengan CONFIG.VEHICLE_FULL di Code.gs
-  fullName: VEHICLE_FULL,
-  shortName: "P 2006 ABC",
-  unit: "Rescue Car",
-};
 
 const SECTIONS = {
   1: {
@@ -92,21 +85,6 @@ const STATUS_OPTIONS = [
   { value: "Rusak", hint: "Perlu perbaikan" },
 ];
 
-const MONTHS = [
-  ["01", "Januari"],
-  ["02", "Februari"],
-  ["03", "Maret"],
-  ["04", "April"],
-  ["05", "Mei"],
-  ["06", "Juni"],
-  ["07", "Juli"],
-  ["08", "Agustus"],
-  ["09", "September"],
-  ["10", "Oktober"],
-  ["11", "November"],
-  ["12", "Desember"],
-];
-
 const emptyItem = () => ({
   status: "",
   keterangan: "",
@@ -121,6 +99,16 @@ function defaultItems(section) {
     acc[index] = emptyItem();
     return acc;
   }, {});
+}
+
+function defaultAllItems() {
+  return {
+    1: defaultItems(1),
+    2: defaultItems(2),
+    3: defaultItems(3),
+    4: defaultItems(4),
+    5: defaultItems(5),
+  };
 }
 
 function formatDateDisplay(dateStr) {
@@ -156,22 +144,18 @@ function App() {
   const [showPin, setShowPin] = useState(false);
   const [pin, setPin] = useState("");
   const [pinError, setPinError] = useState("");
-  const [activeTab, setActiveTab] = useState("form");
+  const [vehicleIndex, setVehicleIndex] = useState(0);
   const [currentSection, setCurrentSection] = useState(1);
   const [checkId, setCheckId] = useState(null);
   const [namaPemeriksa, setNamaPemeriksa] = useState("");
   const [koorPengelola, setKoorPengelola] = useState("");
-  const [tanggalPengecekan, setTanggalPengecekan] = useState("");
+  const [tanggalPengecekan, setTanggalPengecekan] = useState(
+    () => new Date().toISOString().split("T")[0]
+  );
   const [kmKendaraan, setKmKendaraan] = useState("");
   const [bbm, setBbm] = useState("");
   const [tanggalService, setTanggalService] = useState("");
-  const [itemsBySection, setItemsBySection] = useState({
-    1: defaultItems(1),
-    2: defaultItems(2),
-    3: defaultItems(3),
-    4: defaultItems(4),
-    5: defaultItems(5),
-  });
+  const [itemsBySection, setItemsBySection] = useState(defaultAllItems);
   const [kesimpulan, setKesimpulan] = useState("");
   const [catatan, setCatatan] = useState("");
   const [pemeriksaOptions, setPemeriksaOptions] = useState([]);
@@ -182,24 +166,14 @@ function App() {
     km: null,
   });
   const [saving, setSaving] = useState(false);
-  const [history, setHistory] = useState([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [filterBulan, setFilterBulan] = useState("");
-  const [filterTahun, setFilterTahun] = useState("");
-  const [historyLoaded, setHistoryLoaded] = useState(false);
   const [connMode] = useState(() => getConnectionMode());
 
+  const vehicle = VEHICLES[vehicleIndex] || VEHICLES[0];
   const currentItems = itemsBySection[currentSection];
 
-  const years = useMemo(() => {
-    const currentYear = new Date().getFullYear();
-    return Array.from({ length: 6 }, (_, index) => currentYear - index);
-  }, []);
-
   useEffect(() => {
-    setTanggalPengecekan(new Date().toISOString().split("T")[0]);
     loadDropdownData();
-    loadLastServiceInfo();
+    loadLastServiceInfo(VEHICLES[0].fullName);
   }, []);
 
   async function loadDropdownData() {
@@ -212,10 +186,10 @@ function App() {
     }
   }
 
-  async function loadLastServiceInfo() {
+  async function loadLastServiceInfo(vehicleFullName) {
     setServiceInfo({ text: "Memuat data service...", tone: "loading", km: null });
     try {
-      const data = await callGas("getLastServiceInfo", VEHICLE_DATA.fullName);
+      const data = await callGas("getLastServiceInfo", vehicleFullName);
       if (data?.tanggalService) {
         setTanggalService(data.tanggalService);
         setServiceInfo({
@@ -240,6 +214,25 @@ function App() {
         km: null,
       });
     }
+  }
+
+  function handleVehicleChange(index) {
+    if (index === vehicleIndex) return;
+    setVehicleIndex(index);
+    // Ganti kendaraan = mulai pengecekan baru untuk kendaraan tsb
+    setCurrentSection(1);
+    setCheckId(null);
+    setKesimpulan("");
+    setCatatan("");
+    setItemsBySection(defaultAllItems());
+    loadLastServiceInfo(VEHICLES[index].fullName);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function getEmptyItems(section) {
+    const labels = SECTIONS[section].items;
+    const data = itemsBySection[section];
+    return labels.filter((_, index) => !data?.[index]?.status);
   }
 
   function updateItem(index, field, value) {
@@ -276,7 +269,21 @@ function App() {
     }
   }
 
-  function goToSection(section) {
+  // Navigasi bebas: boleh pindah ke bagian mana pun.
+  // Kalau bagian saat ini masih ada yang belum diisi -> popup konfirmasi dulu.
+  async function goToSection(section) {
+    if (section === currentSection) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    const empty = getEmptyItems(currentSection);
+    if (empty.length > 0) {
+      const yakin = await confirmIncomplete(
+        `Bagian ${currentSection} belum lengkap`,
+        `Masih ada ${empty.length} item belum dinilai: ${empty.join(", ")}. Yakin lanjut ke Bagian ${section} (${SECTIONS[section].title})?`
+      );
+      if (!yakin) return;
+    }
     setCurrentSection(section);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -306,6 +313,25 @@ function App() {
     }
     window.alert(`${title}\n\n${text}`);
     return Promise.resolve();
+  }
+
+  // Konfirmasi "yakin lanjut?" khusus untuk bagian yang belum lengkap.
+  // return true = lanjut, false = tetap di sini.
+  async function confirmIncomplete(title, text) {
+    if (window.Swal) {
+      const result = await window.Swal.fire({
+        title,
+        text,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#ea580c",
+        cancelButtonColor: "#64748b",
+        confirmButtonText: "Ya, lanjut",
+        cancelButtonText: "Tetap di sini",
+      });
+      return result.isConfirmed;
+    }
+    return window.confirm(`${title}\n\n${text}`);
   }
 
   async function confirmSave(message) {
@@ -344,17 +370,21 @@ function App() {
       return;
     }
     const sectionItems = SECTIONS[currentSection].items;
-    const currentItemData = itemsBySection[currentSection];
-    const emptyItems = sectionItems.filter((_, index) => !currentItemData[index]?.status);
+    const emptyItems = getEmptyItems(currentSection);
+    // Tidak lagi diblokir: kalau ada yang kosong, tampilkan popup konfirmasi dulu
     if (emptyItems.length > 0) {
-      await showAlert("Status belum lengkap", `Masih ada ${emptyItems.length} item belum dinilai: ${emptyItems.join(", ")}`);
-      return;
+      const yakin = await confirmIncomplete(
+        `Bagian ${currentSection} belum lengkap`,
+        `Masih ada ${emptyItems.length} item belum dinilai: ${emptyItems.join(", ")}. Yakin simpan dan lanjut dengan kondisi ini?`
+      );
+      if (!yakin) return;
     }
     if (currentSection === 5 && !kesimpulan) {
       await showAlert("Belum lengkap", "Pilih kesimpulan pemeriksaan.");
       return;
     }
 
+    const currentItemData = itemsBySection[currentSection];
     const items = sectionItems.map((label, index) => {
       const item = currentItemData[index] || emptyItem();
       return {
@@ -370,6 +400,7 @@ function App() {
     const saveData = {
       section: currentSection,
       id: checkId,
+      tipeKendaraan: vehicle.fullName,
       namaPemeriksa,
       koorPengelola,
       tanggal: tanggalPengecekan,
@@ -385,8 +416,8 @@ function App() {
 
     const message =
       currentSection === 5
-        ? "Seluruh hasil 5 bagian akan diselesaikan."
-        : `Bagian ${currentSection} tersimpan, lanjut ke bagian berikutnya.`;
+        ? `Selesaikan pemeriksaan ${vehicle.unit} (${vehicle.shortName})?`
+        : `Simpan Bagian ${currentSection} untuk ${vehicle.shortName}, lalu lanjut ke bagian berikutnya.`;
     const confirmed = await confirmSave(message);
     if (!confirmed) return;
 
@@ -428,7 +459,7 @@ function App() {
         await window.Swal.fire({
           icon: "success",
           title: "Pemeriksaan selesai",
-          text: "Semua bagian berhasil disimpan.",
+          text: `Semua bagian ${vehicle.unit} (${vehicle.shortName}) berhasil disimpan.`,
           confirmButtonColor: "#0f172a",
         });
       } else {
@@ -453,33 +484,9 @@ function App() {
     setTanggalService("");
     setKesimpulan("");
     setCatatan("");
-    setItemsBySection({
-      1: defaultItems(1),
-      2: defaultItems(2),
-      3: defaultItems(3),
-      4: defaultItems(4),
-      5: defaultItems(5),
-    });
-    loadLastServiceInfo();
+    setItemsBySection(defaultAllItems());
+    loadLastServiceInfo(vehicle.fullName);
     window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
-  async function loadHistory() {
-    setHistoryLoading(true);
-    setHistoryLoaded(true);
-    try {
-      const data = await callGas("getHistoryData", {
-        bulan: filterBulan,
-        tahun: filterTahun,
-      });
-      setHistory(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error(error);
-      setHistory([]);
-      await showAlert("Gagal memuat", error?.message || "Terjadi kesalahan", "error");
-    } finally {
-      setHistoryLoading(false);
-    }
   }
 
   const sectionFilled = SECTIONS[currentSection].items.filter(
@@ -536,11 +543,11 @@ function App() {
           <div>
             <div className="eyebrow">Kendaraan operasional &middot; Kantor Tipe B</div>
             <h1>
-              {VEHICLE_DATA.unit} <span className="plate">{VEHICLE_DATA.shortName}</span>
+              {vehicle.unit} <span className="plate">{vehicle.shortName}</span>
             </h1>
             <p className="hero-desc">
-              Formulir pengecekan berkala 5 bagian. Nilai setiap item, lampirkan foto bila ada temuan,
-              lalu simpan per bagian.
+              Formulir pengecekan berkala 5 bagian. Pilih kendaraan, nilai setiap item,
+              lalu simpan per bagian. Bebas pindah bagian kapan saja.
             </p>
           </div>
           <div className="hero-side">
@@ -559,396 +566,340 @@ function App() {
           </div>
         </section>
 
-        <nav className="tabs" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            className={activeTab === "form" ? "tab is-active" : "tab"}
-            onClick={() => setActiveTab("form")}
-          >
-            Formulir pengecekan
-          </button>
-          <button
-            type="button"
-            role="tab"
-            className={activeTab === "history" ? "tab is-active" : "tab"}
-            onClick={() => setActiveTab("history")}
-          >
-            Riwayat
-            {historyLoaded && history.length > 0 ? (
-              <span className="tab-count">{history.length}</span>
-            ) : null}
-          </button>
-        </nav>
-
-        {activeTab === "form" ? (
-          <main>
-            <form id="checkForm" onSubmit={handleSubmit}>
-              <ol className="stepper">
-                {STEPS.map((n) => {
-                  const state =
-                    n < currentSection ? "done" : n === currentSection ? "active" : "todo";
-                  return (
-                    <li key={n} className={`step ${state}`}>
-                      <button
-                        type="button"
-                        className="step-btn"
-                        onClick={() => n <= currentSection && goToSection(n)}
-                        disabled={n > currentSection}
-                        title={SECTIONS[n].title}
-                      >
-                        <span className="step-num">
-                          {n < currentSection ? (
-                            <svg viewBox="0 0 16 16" width="13" height="13" fill="none">
-                              <path
-                                d="M3 8.5l3.2 3.2L13 5"
-                                stroke="currentColor"
-                                strokeWidth="2.2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                          ) : (
-                            n
-                          )}
-                        </span>
-                        <span className="step-text">
-                          <span className="step-name">{SECTIONS[n].title}</span>
-                          <span className="step-sub">
-                            {state === "done" ? "Tersimpan" : state === "active" ? "Sedang diisi" : `Bagian ${n}`}
-                          </span>
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ol>
-
-              <section className="card">
-                <div className="card-head">
-                  <div>
-                    <h2>Informasi umum</h2>
-                    <p>Data pemeriksa dan kondisi awal kendaraan.</p>
-                  </div>
-                  <span className="card-no">01</span>
-                </div>
-
-                <div className="field-grid cols-2">
-                  <label className="field">
-                    <span>Nama pemeriksa</span>
-                    <select
-                      value={namaPemeriksa}
-                      onChange={(e) => setNamaPemeriksa(e.target.value)}
-                      required
-                    >
-                      <option value="">Pilih nama…</option>
-                      {pemeriksaOptions.map((name) => (
-                        <option value={name} key={name}>{name}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="field">
-                    <span>Koordinator pengelola</span>
-                    <select
-                      value={koorPengelola}
-                      onChange={(e) => setKoorPengelola(e.target.value)}
-                      required
-                    >
-                      <option value="">Pilih koordinator…</option>
-                      {koordinatorOptions.map((name) => (
-                        <option value={name} key={name}>{name}</option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-
-                <div className="field-grid cols-3">
-                  <label className="field">
-                    <span>Tanggal pengecekan</span>
-                    <input
-                      type="date"
-                      value={tanggalPengecekan}
-                      onChange={(e) => setTanggalPengecekan(e.target.value)}
-                      required
-                    />
-                  </label>
-                  <label className="field">
-                    <span>KM kendaraan</span>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      placeholder="cth. 45210"
-                      value={kmKendaraan}
-                      onChange={(e) => setKmKendaraan(e.target.value)}
-                      required
-                    />
-                  </label>
-                  <label className="field">
-                    <span>BBM (%)</span>
-                    <input
-                      type="number"
-                      placeholder="0–100"
-                      min="0"
-                      max="100"
-                      value={bbm}
-                      onChange={(e) => setBbm(e.target.value)}
-                      required={currentSection === 1}
-                    />
-                  </label>
-                </div>
-
-                <div className="service-row">
-                  <label className="field grow">
-                    <span>Tanggal service terakhir</span>
-                    <input
-                      type="date"
-                      value={tanggalService}
-                      onChange={(e) => setTanggalService(e.target.value)}
-                      required
-                    />
-                  </label>
-                  <div className={`service-note ${serviceInfo.tone}`}>
-                    <span className="service-dot" />
-                    <div>
-                      <div className="service-text">{serviceInfo.text}</div>
-                      {serviceInfo.km !== null && (
-                        <div className="service-km">KM service: {serviceInfo.km}</div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              <section className="card">
-                <div className="card-head">
-                  <div>
-                    <div className="eyebrow small">
-                      Bagian {currentSection} &middot; {sectionFilled}/{sectionTotal} selesai
-                    </div>
-                    <h2>{SECTIONS[currentSection].title}</h2>
-                    <p>{SECTIONS[currentSection].desc}</p>
-                  </div>
-                  <span className="card-no">02</span>
-                </div>
-
-                <div className="check-list">
-                  {SECTIONS[currentSection].items.map((item, index) => {
-                    const itemData = currentItems[index] || emptyItem();
-                    const inputId = `file_${currentSection}_${index}`;
-                    return (
-                      <div
-                        key={item}
-                        className={`check-item ${itemData.status ? `is-${slug(itemData.status)}` : ""}`}
-                      >
-                        <div className="check-top">
-                          <span className="check-num">{String(index + 1).padStart(2, "0")}</span>
-                          <div className="check-title">
-                            <strong>{item}</strong>
-                            <span className="check-state">
-                              {itemData.status || "Belum dinilai"}
-                            </span>
-                          </div>
-                          {itemData.preview && (
-                            <img src={itemData.preview} alt="" className="check-thumb" />
-                          )}
-                        </div>
-
-                        <div
-                          className="seg"
-                          role="radiogroup"
-                          aria-label={`Status ${item}`}
-                        >
-                          {STATUS_OPTIONS.map((opt) => (
-                            <button
-                              key={opt.value}
-                              type="button"
-                              role="radio"
-                              aria-checked={itemData.status === opt.value}
-                              className={`seg-btn seg-${slug(opt.value)} ${itemData.status === opt.value ? "is-on" : ""}`}
-                              onClick={() => updateItem(index, "status", opt.value)}
-                            >
-                              {opt.value}
-                            </button>
-                          ))}
-                        </div>
-
-                        <div className="check-bottom">
-                          <input
-                            type="text"
-                            className="ghost-input"
-                            placeholder="Keterangan (opsional)…"
-                            value={itemData.keterangan}
-                            onChange={(e) => updateItem(index, "keterangan", e.target.value)}
-                          />
-                          <label className="upload-btn" htmlFor={inputId}>
-                            <svg viewBox="0 0 16 16" width="14" height="14" fill="none">
-                              <path
-                                d="M8 10V2M5 5l3-3 3 3M2.5 11v2.5A1 1 0 003.5 14.5h9a1 1 0 001-1V11"
-                                stroke="currentColor"
-                                strokeWidth="1.6"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                            {itemData.fileName ? "Ganti foto" : "Foto"}
-                            <input
-                              id={inputId}
-                              type="file"
-                              hidden
-                              accept="image/*"
-                              onChange={(e) => handleFileChange(index, e)}
-                            />
-                          </label>
-                        </div>
-
-                        {itemData.fileName && (
-                          <div className="file-line">
-                            <span className="file-name">{itemData.fileName}</span>
-                            <button type="button" className="link-danger" onClick={() => removeFile(index)}>
-                              Hapus
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {currentSection === 5 && (
-                  <div className="conclusion">
-                    <h3>Kesimpulan pemeriksaan</h3>
-                    <div className="field-grid cols-2">
-                      <label className="field">
-                        <span>Hasil akhir</span>
-                        <select
-                          value={kesimpulan}
-                          onChange={(e) => setKesimpulan(e.target.value)}
-                          required
-                        >
-                          <option value="">Pilih kesimpulan…</option>
-                          <option value="Layak Operasi">Layak operasi</option>
-                          <option value="Layak Operasi dengan Perbaikan">
-                            Layak operasi dengan perbaikan
-                          </option>
-                          <option value="Tidak Layak Operasi">Tidak layak operasi</option>
-                        </select>
-                      </label>
-                      <label className="field">
-                        <span>Catatan tambahan</span>
-                        <input
-                          type="text"
-                          placeholder="cth. Perlu ganti wiper depan…"
-                          value={catatan}
-                          onChange={(e) => setCatatan(e.target.value)}
-                        />
-                      </label>
-                    </div>
-                    {catatan === "" && (
-                      <textarea
-                        rows="2"
-                        placeholder="Atau tulis catatan panjang di sini… (opsional)"
-                        value={catatan}
-                        onChange={(e) => setCatatan(e.target.value)}
-                      />
-                    )}
-                  </div>
-                )}
-              </section>
-
-              <div className="action-bar">
-                <button
-                  type="button"
-                  className="btn ghost"
-                  disabled={currentSection === 1}
-                  onClick={() => goToSection(currentSection - 1)}
-                >
-                  ← Kembali
-                </button>
-                <div className="action-hint">
-                  {sectionTotal - sectionFilled === 0
-                    ? "Semua item sudah dinilai"
-                    : `${sectionTotal - sectionFilled} item belum dinilai`}
-                </div>
-                <button type="submit" className="btn primary" disabled={saving}>
-                  {saving
-                    ? "Menyimpan…"
-                    : currentSection === 5
-                      ? "Selesaikan pemeriksaan"
-                      : `Simpan bagian ${currentSection} →`}
-                </button>
-              </div>
-            </form>
-          </main>
-        ) : (
-          <main>
+        <main>
+          <form id="checkForm" onSubmit={handleSubmit}>
             <section className="card">
               <div className="card-head">
                 <div>
-                  <h2>Riwayat pengecekan</h2>
-                  <p>Filter berdasarkan bulan dan tahun, lalu tampilkan.</p>
+                  <h2>Pilih kendaraan</h2>
+                  <p>Kendaraan yang akan dicek saat ini.</p>
                 </div>
-                <span className="card-no">⟡</span>
+                <span className="card-no">◎</span>
               </div>
+              <div className="vehicle-grid" role="radiogroup" aria-label="Pilih kendaraan">
+                {VEHICLES.map((v, idx) => (
+                  <button
+                    key={v.fullName}
+                    type="button"
+                    role="radio"
+                    aria-checked={idx === vehicleIndex}
+                    className={`vehicle-btn ${idx === vehicleIndex ? "is-on" : ""}`}
+                    onClick={() => handleVehicleChange(idx)}
+                  >
+                    <span className="vehicle-unit">{v.unit}</span>
+                    <span className="vehicle-plate">{v.shortName}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <ol className="stepper">
+              {STEPS.map((n) => {
+                const filled = SECTIONS[n].items.filter(
+                  (_, i) => itemsBySection[n]?.[i]?.status
+                ).length;
+                const total = SECTIONS[n].items.length;
+                const state =
+                  n === currentSection ? "active" : filled === total ? "done" : filled > 0 ? "half" : "todo";
+                return (
+                  <li key={n} className={`step ${state}`}>
+                    <button
+                      type="button"
+                      className="step-btn"
+                      onClick={() => goToSection(n)}
+                      title={`${SECTIONS[n].title} (${filled}/${total})`}
+                    >
+                      <span className="step-num">
+                        {filled === total && n !== currentSection ? (
+                          <svg viewBox="0 0 16 16" width="13" height="13" fill="none">
+                            <path
+                              d="M3 8.5l3.2 3.2L13 5"
+                              stroke="currentColor"
+                              strokeWidth="2.2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        ) : (
+                          n
+                        )}
+                      </span>
+                      <span className="step-text">
+                        <span className="step-name">{SECTIONS[n].title}</span>
+                        <span className="step-sub">
+                          {n === currentSection
+                            ? "Sedang diisi"
+                            : filled === total
+                              ? "Lengkap"
+                              : filled > 0
+                                ? `${filled}/${total} diisi`
+                                : `Bagian ${n}`}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+
+            <section className="card">
+              <div className="card-head">
+                <div>
+                  <h2>Informasi umum</h2>
+                  <p>Data pemeriksa dan kondisi awal {vehicle.unit}.</p>
+                </div>
+                <span className="card-no">01</span>
+              </div>
+
+              <div className="field-grid cols-2">
+                <label className="field">
+                  <span>Nama pemeriksa</span>
+                  <select
+                    value={namaPemeriksa}
+                    onChange={(e) => setNamaPemeriksa(e.target.value)}
+                    required
+                  >
+                    <option value="">Pilih nama…</option>
+                    {pemeriksaOptions.map((name) => (
+                      <option value={name} key={name}>{name}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field">
+                  <span>Koordinator pengelola</span>
+                  <select
+                    value={koorPengelola}
+                    onChange={(e) => setKoorPengelola(e.target.value)}
+                    required
+                  >
+                    <option value="">Pilih koordinator…</option>
+                    {koordinatorOptions.map((name) => (
+                      <option value={name} key={name}>{name}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
               <div className="field-grid cols-3">
                 <label className="field">
-                  <span>Bulan</span>
-                  <select value={filterBulan} onChange={(e) => setFilterBulan(e.target.value)}>
-                    <option value="">Semua bulan</option>
-                    {MONTHS.map(([value, label]) => (
-                      <option value={value} key={value}>{label}</option>
-                    ))}
-                  </select>
+                  <span>Tanggal pengecekan</span>
+                  <input
+                    type="date"
+                    value={tanggalPengecekan}
+                    onChange={(e) => setTanggalPengecekan(e.target.value)}
+                    required
+                  />
                 </label>
                 <label className="field">
-                  <span>Tahun</span>
-                  <select value={filterTahun} onChange={(e) => setFilterTahun(e.target.value)}>
-                    <option value="">Semua tahun</option>
-                    {years.map((year) => (
-                      <option value={year} key={year}>{year}</option>
-                    ))}
-                  </select>
+                  <span>KM kendaraan</span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    placeholder="cth. 45210"
+                    value={kmKendaraan}
+                    onChange={(e) => setKmKendaraan(e.target.value)}
+                    required
+                  />
                 </label>
-                <div className="field field-btn">
-                  <span>&nbsp;</span>
-                  <button
-                    className="btn primary full"
-                    type="button"
-                    onClick={loadHistory}
-                    disabled={historyLoading}
-                  >
-                    {historyLoading ? "Memuat…" : "Tampilkan"}
-                  </button>
+                <label className="field">
+                  <span>BBM (%)</span>
+                  <input
+                    type="number"
+                    placeholder="0–100"
+                    min="0"
+                    max="100"
+                    value={bbm}
+                    onChange={(e) => setBbm(e.target.value)}
+                    required={currentSection === 1}
+                  />
+                </label>
+              </div>
+
+              <div className="service-row">
+                <label className="field grow">
+                  <span>Tanggal service terakhir</span>
+                  <input
+                    type="date"
+                    value={tanggalService}
+                    onChange={(e) => setTanggalService(e.target.value)}
+                    required
+                  />
+                </label>
+                <div className={`service-note ${serviceInfo.tone}`}>
+                  <span className="service-dot" />
+                  <div>
+                    <div className="service-text">{serviceInfo.text}</div>
+                    {serviceInfo.km !== null && (
+                      <div className="service-km">KM service: {serviceInfo.km}</div>
+                    )}
+                  </div>
                 </div>
               </div>
             </section>
 
-            <div className="history-list">
-              {!historyLoaded ? (
-                <div className="empty">
-                  <strong>Belum ada data ditampilkan</strong>
-                  <p>Pilih filter lalu klik “Tampilkan”.</p>
+            <section className="card">
+              <div className="card-head">
+                <div>
+                  <div className="eyebrow small">
+                    Bagian {currentSection} &middot; {sectionFilled}/{sectionTotal} selesai
+                  </div>
+                  <h2>{SECTIONS[currentSection].title}</h2>
+                  <p>{SECTIONS[currentSection].desc}</p>
                 </div>
-              ) : historyLoading ? (
-                <div className="empty">
-                  <strong>Memuat riwayat…</strong>
-                  <p>Mohon tunggu sebentar.</p>
+                <span className="card-no">02</span>
+              </div>
+
+              <div className="check-list">
+                {SECTIONS[currentSection].items.map((item, index) => {
+                  const itemData = currentItems[index] || emptyItem();
+                  const inputId = `file_${currentSection}_${index}`;
+                  return (
+                    <div
+                      key={item}
+                      className={`check-item ${itemData.status ? `is-${slug(itemData.status)}` : ""}`}
+                    >
+                      <div className="check-top">
+                        <span className="check-num">{String(index + 1).padStart(2, "0")}</span>
+                        <div className="check-title">
+                          <strong>{item}</strong>
+                          <span className="check-state">
+                            {itemData.status || "Belum dinilai"}
+                          </span>
+                        </div>
+                        {itemData.preview && (
+                          <img src={itemData.preview} alt="" className="check-thumb" />
+                        )}
+                      </div>
+
+                      <div
+                        className="seg"
+                        role="radiogroup"
+                        aria-label={`Status ${item}`}
+                      >
+                        {STATUS_OPTIONS.map((opt) => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            role="radio"
+                            aria-checked={itemData.status === opt.value}
+                            className={`seg-btn seg-${slug(opt.value)} ${itemData.status === opt.value ? "is-on" : ""}`}
+                            onClick={() => updateItem(index, "status", opt.value)}
+                          >
+                            {opt.value}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="check-bottom">
+                        <input
+                          type="text"
+                          className="ghost-input"
+                          placeholder="Keterangan (opsional)…"
+                          value={itemData.keterangan}
+                          onChange={(e) => updateItem(index, "keterangan", e.target.value)}
+                        />
+                        <label className="upload-btn" htmlFor={inputId}>
+                          <svg viewBox="0 0 16 16" width="14" height="14" fill="none">
+                            <path
+                              d="M8 10V2M5 5l3-3 3 3M2.5 11v2.5A1 1 0 003.5 14.5h9a1 1 0 001-1V11"
+                              stroke="currentColor"
+                              strokeWidth="1.6"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                          {itemData.fileName ? "Ganti foto" : "Foto"}
+                          <input
+                            id={inputId}
+                            type="file"
+                            hidden
+                            accept="image/*"
+                            onChange={(e) => handleFileChange(index, e)}
+                          />
+                        </label>
+                      </div>
+
+                      {itemData.fileName && (
+                        <div className="file-line">
+                          <span className="file-name">{itemData.fileName}</span>
+                          <button type="button" className="link-danger" onClick={() => removeFile(index)}>
+                            Hapus
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {currentSection === 5 && (
+                <div className="conclusion">
+                  <h3>Kesimpulan pemeriksaan</h3>
+                  <div className="field-grid cols-2">
+                    <label className="field">
+                      <span>Hasil akhir</span>
+                      <select
+                        value={kesimpulan}
+                        onChange={(e) => setKesimpulan(e.target.value)}
+                        required
+                      >
+                        <option value="">Pilih kesimpulan…</option>
+                        <option value="Layak Operasi">Layak operasi</option>
+                        <option value="Layak Operasi dengan Perbaikan">
+                          Layak operasi dengan perbaikan
+                        </option>
+                        <option value="Tidak Layak Operasi">Tidak layak operasi</option>
+                      </select>
+                    </label>
+                    <label className="field">
+                      <span>Catatan tambahan</span>
+                      <input
+                        type="text"
+                        placeholder="cth. Perlu ganti wiper depan…"
+                        value={catatan}
+                        onChange={(e) => setCatatan(e.target.value)}
+                      />
+                    </label>
+                  </div>
+                  {catatan === "" && (
+                    <textarea
+                      rows="2"
+                      placeholder="Atau tulis catatan panjang di sini… (opsional)"
+                      value={catatan}
+                      onChange={(e) => setCatatan(e.target.value)}
+                    />
+                  )}
                 </div>
-              ) : history.length === 0 ? (
-                <div className="empty">
-                  <strong>Tidak ada data</strong>
-                  <p>Tidak ditemukan riwayat untuk filter tersebut.</p>
-                </div>
-              ) : (
-                history.map((record, index) => (
-                  <HistoryCard record={record} key={record.id || index} />
-                ))
               )}
+            </section>
+
+            <div className="action-bar">
+              <button
+                type="button"
+                className="btn ghost"
+                disabled={currentSection === 1}
+                onClick={() => goToSection(currentSection - 1)}
+              >
+                ← Kembali
+              </button>
+              <div className="action-hint">
+                {sectionTotal - sectionFilled === 0
+                  ? "Semua item sudah dinilai"
+                  : `${sectionTotal - sectionFilled} item belum dinilai`}
+              </div>
+              <button type="submit" className="btn primary" disabled={saving}>
+                {saving
+                  ? "Menyimpan…"
+                  : currentSection === 5
+                    ? "Selesaikan pemeriksaan"
+                    : `Simpan bagian ${currentSection} →`}
+              </button>
             </div>
-          </main>
-        )}
+          </form>
+        </main>
 
         <footer className="foot">
-          E-Mon SAR &middot; Rescue Car {VEHICLE_DATA.shortName} &middot; BASARNAS Banyuwangi
+          E-Mon SAR &middot; {vehicle.unit} {vehicle.shortName} &middot; BASARNAS Banyuwangi
         </footer>
       </div>
 
@@ -988,52 +939,6 @@ function App() {
 
 function slug(s) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-}
-
-function HistoryCard({ record }) {
-  const issues = record?.issues || [];
-  return (
-    <article className="card history">
-      <div className="history-top">
-        <div>
-          <strong className="history-name">{record?.namaPemeriksa || "-"}</strong>
-          <div className="history-date">
-            {record?.tanggal ? formatDateDisplay(record.tanggal) : "-"}
-          </div>
-        </div>
-        <span className={`status-pill ${slug(record?.kesimpulan || "baik")}`}>
-          {record?.kesimpulan || "-"}
-        </span>
-      </div>
-
-      <dl className="history-grid">
-        <div><dt>Koordinator</dt><dd>{record?.koorPengelola || "-"}</dd></div>
-        <div><dt>KM</dt><dd>{record?.kmKendaraan || "-"}</dd></div>
-        <div><dt>Service</dt><dd>{record?.tanggalService ? formatDateDisplay(record.tanggalService) : "-"}</dd></div>
-      </dl>
-
-      {record?.catatan && <p className="history-note">“{record.catatan}”</p>}
-
-      {issues.length === 0 ? (
-        <div className="ok-line">
-          <span className="ok-dot" /> Tidak ada temuan — semua item baik.
-        </div>
-      ) : (
-        <ul className="issue-list">
-          {issues.map((issue, i) => (
-            <li key={issue.id || i} className="issue">
-              <span className="issue-part">{issue.bagian || "-"}</span>
-              <span className="issue-item">{issue.item || "-"}</span>
-              <span className={`issue-status st-${slug(issue.status || "")}`}>
-                {issue.status || "-"}
-              </span>
-              {issue.keterangan && <span className="issue-note">{issue.keterangan}</span>}
-            </li>
-          ))}
-        </ul>
-      )}
-    </article>
-  );
 }
 
 export default App;

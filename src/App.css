@@ -124,6 +124,30 @@ img { max-width: 100%; }
 .tab.is-active { background: var(--ink); color: #fff; }
 .tab-count { background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; border-radius: 99px; padding: 1px 8px; }
 
+/* ---------- vehicle picker ---------- */
+.vehicle-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+}
+.vehicle-btn {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  background: #f9fafb; border: 1.5px solid var(--border); border-radius: 12px;
+  padding: 10px 12px; cursor: pointer; text-align: left; transition: all .15s;
+}
+.vehicle-btn:hover { border-color: var(--ink); }
+.vehicle-btn.is-on {
+  background: var(--ink); border-color: var(--ink); color: #fff;
+  box-shadow: 0 0 0 3px rgba(15,23,42,.1);
+}
+.vehicle-unit { font-size: 12.5px; font-weight: 700; }
+.vehicle-plate {
+  font-size: 11px; font-weight: 800; letter-spacing: .04em;
+  background: rgba(128,128,128,.14); border-radius: 6px; padding: 2px 8px;
+}
+.vehicle-btn.is-on .vehicle-plate { background: rgba(255,255,255,.18); color: #fff; }
+@media (max-width: 720px) {
+  .vehicle-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
 /* ---------- stepper ---------- */
 .stepper {
   list-style: none; margin: 0 0 14px; padding: 0;
@@ -139,6 +163,9 @@ img { max-width: 100%; }
 .step.todo .step-btn { background: #fff; }
 .step.active .step-btn { border-color: var(--ink); box-shadow: 0 0 0 3px rgba(15,23,42,.08); }
 .step.done .step-btn { border-color: var(--success-border); background: #f6fef9; }
+.step.half .step-btn { border-color: var(--accent-border); background: #fffaf5; }
+.step.half .step-num { background: var(--accent); color: #fff; }
+.step.half .step-sub { color: var(--accent); }
 .step-num {
   width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
   display: inline-flex; align-items: center; justify-content: center;
