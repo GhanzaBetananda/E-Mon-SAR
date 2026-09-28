@@ -125,14 +125,21 @@
 
 /* ---------- laporan bulanan (pratinjau di layar) ---------- */
 .report-builder { margin-bottom: 0; }
-.report-builder .field-grid { margin-bottom: 0; }
 
-.report-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-  margin: 2px 0;
+/* Form filter laporan: bulan | kendaraan | tombol sejajar */
+.report-form {
+  display: grid;
+  grid-template-columns: 190px 1fr auto;
+  gap: 10px;
+  align-items: end;
 }
+.report-form .btn { min-height: 42px; white-space: nowrap; }
+
+/* Mode pratinjau: fokus ke laporan, daftar temuan disembunyikan */
+.page.report-mode .pim-filters,
+.page.report-mode .pim-list { display: none; }
+
+.report-hint strong { color: var(--text); }
 
 .report-paper {
   background: #fff;
@@ -208,7 +215,7 @@
   .page.report-mode .pim-hero,
   .page.report-mode .pim-stats,
   .page.report-mode .report-builder,
-  .page.report-mode .report-actions,
+  .page.report-mode .action-bar,
   .page.report-mode .pim-filters,
   .page.report-mode .pim-list,
   .page.report-mode .empty,
@@ -232,6 +239,13 @@
 }
 
 @media (max-width: 720px) {
+  .report-form { grid-template-columns: 1fr; }
+  .report-form .btn { min-height: 46px; }
+  .report-paper { padding: 22px 18px; }
+  .kop-logo { width: 52px; height: 52px; }
+  .kop-line1 { font-size: 14px; }
+  .kop-line2 { font-size: 13px; }
+  .report-sign { flex-direction: column; }
   .pim-hero { flex-direction: column; align-items: stretch; }
   .pim-hero h1 { font-size: 18px; }
   .pim-hero .btn { min-height: 46px; }

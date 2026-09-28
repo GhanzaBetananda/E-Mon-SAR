@@ -271,7 +271,7 @@ export default function Pimpinan({ onExit }) {
             </div>
             <span className="card-no">▤</span>
           </div>
-          <div className="field-grid cols-3">
+          <div className="report-form">
             <label className="field">
               <span>Bulan laporan</span>
               <input
@@ -294,31 +294,19 @@ export default function Pimpinan({ onExit }) {
                 ))}
               </select>
             </label>
-            <div className="field field-btn">
-              <span>&nbsp;</span>
-              <button
-                className="btn primary full"
-                type="button"
-                onClick={() => setShowReport(true)}
-                disabled={loading || !reportMonth}
-              >
-                {loading ? "Memuat…" : "Tampilkan Pratinjau"}
-              </button>
-            </div>
+            <button
+              className="btn primary"
+              type="button"
+              onClick={() => setShowReport(true)}
+              disabled={loading || !reportMonth}
+            >
+              {loading ? "Memuat…" : "▤ Tampilkan Pratinjau"}
+            </button>
           </div>
         </section>
 
         {showReport && (
           <>
-            <div className="report-actions no-print">
-              <button type="button" className="btn ghost" onClick={() => setShowReport(false)}>
-                ← Tutup Pratinjau
-              </button>
-              <button type="button" className="btn primary" onClick={handlePrint}>
-                ⎙ Cetak / Simpan PDF
-              </button>
-            </div>
-
             <section className="report-paper" aria-label="Pratinjau laporan bulanan">
               <div className="kop">
                 <img
@@ -451,6 +439,19 @@ export default function Pimpinan({ onExit }) {
                 </div>
               </div>
             </section>
+
+            <div className="action-bar no-print">
+              <button type="button" className="btn ghost" onClick={() => setShowReport(false)}>
+                ← Tutup
+              </button>
+              <div className="action-hint report-hint">
+                Pratinjau: <strong>{displayMonth(reportMonth)}</strong>
+                {reportVehicle !== "semua" ? ` • ${reportVehicle}` : " • Semua Kendaraan"}
+              </div>
+              <button type="button" className="btn primary" onClick={handlePrint}>
+                ⎙ Cetak / Simpan PDF
+              </button>
+            </div>
           </>
         )}
 
