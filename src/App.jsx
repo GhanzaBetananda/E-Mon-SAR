@@ -7,6 +7,14 @@ import {
   fileToCompressedDataUrl,
   getConnectionMode,
 } from "./lib/gas.js";
+import {
+  confirmIncomplete,
+  confirmSave,
+  showAlert,
+  showError,
+  showSuccess,
+  showSuccessToast,
+} from "./lib/swal.js";
 
 const SECTIONS = {
   1: {
@@ -307,50 +315,6 @@ function App() {
     }
   }
 
-  function showAlert(title, text, icon = "warning") {
-    if (window.Swal) {
-      return window.Swal.fire({ title, text, icon, confirmButtonColor: "#ea580c" });
-    }
-    window.alert(`${title}\n\n${text}`);
-    return Promise.resolve();
-  }
-
-  // Konfirmasi "yakin lanjut?" khusus untuk bagian yang belum lengkap.
-  // return true = lanjut, false = tetap di sini.
-  async function confirmIncomplete(title, text) {
-    if (window.Swal) {
-      const result = await window.Swal.fire({
-        title,
-        text,
-        icon: "warning",
-        showCancelButton: true,
-        confirmButtonColor: "#ea580c",
-        cancelButtonColor: "#64748b",
-        confirmButtonText: "Ya, lanjut",
-        cancelButtonText: "Tetap di sini",
-      });
-      return result.isConfirmed;
-    }
-    return window.confirm(`${title}\n\n${text}`);
-  }
-
-  async function confirmSave(message) {
-    if (window.Swal) {
-      const result = await window.Swal.fire({
-        title: "Simpan bagian ini?",
-        text: message,
-        icon: "question",
-        showCancelButton: true,
-        confirmButtonColor: "#0f172a",
-        cancelButtonColor: "#64748b",
-        confirmButtonText: "Ya, simpan",
-        cancelButtonText: "Batal",
-      });
-      return result.isConfirmed;
-    }
-    return window.confirm(message);
-  }
-
   async function handleSubmit(event) {
     event.preventDefault();
     if (!namaPemeriksa || !koorPengelola) {
@@ -429,15 +393,7 @@ function App() {
       if (currentSection === 5) {
         await saveKesimpulan(saveData);
       } else {
-        if (window.Swal) {
-          await window.Swal.fire({
-            icon: "success",
-            title: `Bagian ${currentSection} tersimpan`,
-            text: "Lanjut ke bagian berikutnya.",
-            timer: 1400,
-            showConfirmButton: false,
-          });
-        }
+        await showSuccessToast(`Bagian ${currentSection} tersimpan`, "Lanjut ke bagian berikutnya.");
         if (result.nextSection) {
           setCurrentSection(result.nextSection);
           window.scrollTo({ top: 0, behavior: "smooth" });
@@ -445,7 +401,7 @@ function App() {
       }
     } catch (error) {
       console.error(error);
-      await showAlert("Gagal menyimpan", error?.message || "Terjadi kesalahan", "error");
+      await showError("Gagal menyimpan", error?.message || "Terjadi kesalahan");
     } finally {
       setSaving(false);
     }
@@ -455,20 +411,14 @@ function App() {
     try {
       const result = await callGas("saveKesimpulan", data);
       if (!result?.success) throw new Error(result?.message || "Gagal menyimpan kesimpulan");
-      if (window.Swal) {
-        await window.Swal.fire({
-          icon: "success",
-          title: "Pemeriksaan selesai",
-          text: `Semua bagian ${vehicle.unit} (${vehicle.shortName}) berhasil disimpan.`,
-          confirmButtonColor: "#0f172a",
-        });
-      } else {
-        window.alert("Pemeriksaan selesai! Semua bagian telah berhasil disimpan.");
-      }
+      await showSuccess(
+        "Pemeriksaan selesai",
+        `Semua bagian ${vehicle.unit} (${vehicle.shortName}) berhasil disimpan.`
+      );
       resetForm();
     } catch (error) {
       console.error(error);
-      await showAlert("Gagal menyimpan", error?.message || "Terjadi kesalahan", "error");
+      await showError("Gagal menyimpan", error?.message || "Terjadi kesalahan");
     }
   }
 
