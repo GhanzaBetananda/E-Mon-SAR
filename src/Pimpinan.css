@@ -123,6 +123,114 @@
 }
 .pim-photo { font-size: 12px; font-weight: 700; color: var(--accent); }
 
+/* ---------- laporan bulanan (pratinjau di layar) ---------- */
+.report-builder { margin-bottom: 0; }
+.report-builder .field-grid { margin-bottom: 0; }
+
+.report-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin: 2px 0;
+}
+
+.report-paper {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  padding: 36px 40px;
+  color: #111;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.kop { display: flex; align-items: center; gap: 16px; }
+.kop-logo { width: 74px; height: 74px; object-fit: contain; flex-shrink: 0; }
+.kop-text { flex: 1; text-align: center; }
+.kop-line1 { font-size: 17px; font-weight: 700; letter-spacing: 0.02em; }
+.kop-line2 { font-size: 16px; font-weight: 700; }
+.kop-line3 { font-size: 11.5px; margin-top: 5px; }
+.kop-rule { border-top: 3px double #000; margin: 12px 0 18px; }
+
+.report-title { text-align: center; margin-bottom: 8px; }
+.report-title h2 {
+  font-size: 15px;
+  margin: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  letter-spacing: 0.02em;
+}
+.report-title p { margin: 5px 0 0; font-size: 12.5px; }
+
+.report-paper h3 { font-size: 13px; margin: 20px 0 8px; }
+
+.report-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.report-table th,
+.report-table td {
+  border: 1px solid #000;
+  padding: 6px 8px;
+  vertical-align: top;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.report-table th { background: #f0f0f0; text-align: center; }
+.report-table .center { text-align: center; }
+.report-table.summary { max-width: 460px; }
+.report-table.summary td.indent { padding-left: 24px; }
+.report-table tr { page-break-inside: avoid; }
+
+.report-nihil {
+  font-size: 12px;
+  font-style: italic;
+  border: 1px dashed #999;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin: 0;
+}
+
+.report-sign {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 30px;
+  font-size: 12px;
+  page-break-inside: avoid;
+}
+.report-sign > div { text-align: center; min-width: 220px; }
+.report-sign .sign-space { height: 64px; }
+
+/* ---------- cetak PDF: hanya kertas laporan yang keluar ---------- */
+@page { size: A4; margin: 14mm 12mm; }
+
+@media print {
+  body { background: #fff; }
+  .page.report-mode .topbar,
+  .page.report-mode .pim-hero,
+  .page.report-mode .pim-stats,
+  .page.report-mode .report-builder,
+  .page.report-mode .report-actions,
+  .page.report-mode .pim-filters,
+  .page.report-mode .pim-list,
+  .page.report-mode .empty,
+  .page.report-mode .foot,
+  .page.report-mode .no-print { display: none !important; }
+  .page.report-mode .wrap { max-width: none; padding: 0; margin: 0; display: block; }
+  .page.report-mode .pim-wrap { gap: 0; }
+  .report-paper {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0;
+    margin: 0;
+    max-width: none;
+  }
+  .report-table th {
+    background: #f0f0f0 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
 @media (max-width: 720px) {
   .pim-hero { flex-direction: column; align-items: stretch; }
   .pim-hero h1 { font-size: 18px; }
