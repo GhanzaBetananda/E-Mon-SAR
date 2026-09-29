@@ -38,7 +38,7 @@ export const VEHICLE_FULL = VEHICLES[0].fullName;
 // URL Web App Apps Script (paten). Ganti di sini kalau deploy ulang dengan URL baru.
 export const GAS_URL =
   import.meta.env?.VITE_GAS_URL ||
-  "https://script.google.com/macros/s/AKfycbwSRuVefkoMvm-cYdY59dEMxjqcARRwTU4Av3XI-FUW3LIBBQ-GnZTbHOqu8dfP4xNi2w/exec";
+  "https://script.google.com/macros/s/AKfycbyD6W-P0Kl3POgmQNfmn_OsS1ObOtKXA_Bbamn4U8MJ5SSQDaHOIT4y-Wy1UfNrtdRJug/exec";
 
 export function isEmbedded() {
   return Boolean(window.google?.script?.run);
