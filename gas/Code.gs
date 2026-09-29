@@ -10,8 +10,15 @@
  *
  * Deploy:
  *   Deploy > New deployment > Web app > Execute as: Me > Who has access: Anyone
- *   Copy URL .../exec ke React (.env VITE_GAS_URL / kolom pengaturan di footer).
+ *   Copy URL .../exec ke React (VITE_GAS_URL di .env / GAS_URL di src/lib/gas.js).
  *   Setiap ubah file ini: Deploy > Manage deployments > Edit > Version: New version.
+ *
+ * Selaras dengan frontend (multi-kendaraan, navigasi bebas antar-bagian,
+ * SweetAlert2, laporan bulanan PDF di Panel Pimpinan):
+ *   - saveSectionData/saveKesimpulan memakai formData.tipeKendaraan
+ *   - getHistoryData mengelompokkan dari SEMUA sheet bagian (1-5) + kesimpulan,
+ *     mendukung filter bulan/tahun/kendaraan untuk laporan bulanan
+ *   - getVehicleInfo mengembalikan daftar 5 kendaraan (VEHICLE_LIST)
  */
 
 // ==================== KONFIGURASI ====================
@@ -65,7 +72,7 @@ function _route(method, params) {
     case 'getFolderInfo':
       return getFolderInfo();
     case 'ping':
-      return { ok: true, vehicle: CONFIG.VEHICLE_FULL };
+      return { ok: true, vehicle: CONFIG.VEHICLE_FULL, vehicles: CONFIG.VEHICLE_LIST.slice() };
     default:
       throw new Error('Method tidak dikenal: ' + method);
   }
@@ -102,7 +109,7 @@ function doGet(e) {
     }
     try {
       return HtmlService.createHtmlOutputFromFile('Index')
-        .setTitle('Pengecekan Kendaraan BASARNAS - ' + CONFIG.VEHICLE_FULL)
+        .setTitle('E-Mon SAR - BASARNAS Banyuwangi')
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
     } catch (errHtml) {
       return _json({ success: true, data: { ok: true, usage: 'Gunakan POST {method, params} atau GET ?method=...' } });
@@ -187,10 +194,11 @@ function getDropdownData() {
       masterSheet.getRange('A1:C1').setValues([
         ['Nama Pemeriksa', 'Koordinator Pengelola', 'Tipe Kendaraan']
       ]);
+      var seedVehicles = (CONFIG.VEHICLE_LIST && CONFIG.VEHICLE_LIST.length) ? CONFIG.VEHICLE_LIST : [CONFIG.VEHICLE_FULL];
       masterSheet.getRange('A2:C4').setValues([
-        ['Andi Pratama', 'Budi Santoso', CONFIG.VEHICLE_FULL],
-        ['Siti Rahayu', 'Citra Dewi', CONFIG.VEHICLE_FULL],
-        ['Dedi Kurniawan', 'Budi Santoso', CONFIG.VEHICLE_FULL]
+        ['Andi Irawan', 'Nur Kholis Majid', seedVehicles[0]],
+        ['Wahyu Setia Budi', 'Jefriyanzah Putra', seedVehicles[1 % seedVehicles.length]],
+        ['Edi Suryono', 'Nur Kholis Majid', seedVehicles[2 % seedVehicles.length]]
       ]);
     }
 
@@ -224,8 +232,8 @@ function getDropdownData() {
 
 function getDefaultDropdownData() {
   return {
-    namaPemeriksa: ['Andi Pratama', 'Siti Rahayu', 'Dedi Kurniawan', 'Budi Santoso', 'Citra Dewi', 'Eko Prasetyo'],
-    koorPengelola: ['Budi Santoso', 'Citra Dewi', 'Eko Prasetyo']
+    namaPemeriksa: ['Andi Irawan', 'Wahyu Setia Budi', 'Edi Suryono', 'Dyan Susetyo Wibowo', 'Dekky Haeroel R', 'Kurniawan'],
+    koorPengelola: ['Nur Kholis Majid', 'Jefriyanzah Putra']
   };
 }
 
@@ -257,7 +265,7 @@ function getLastServiceInfo(vehicleFullName) {
 
     var latestService = null;
     var latestDate = new Date(0);
-    var target = vehicleFullName.toString().trim();
+    var target = vehicleFullName.toString().trim().toLowerCase();
 
     for (var i = 0; i < data.length; i++) {
       var row = data[i];
@@ -286,7 +294,7 @@ function getLastServiceInfo(vehicleFullName) {
         }
       }
 
-      if (tipe === target && tanggalObj && !isNaN(tanggalObj.getTime())) {
+      if (tipe.toLowerCase() === target && tanggalObj && !isNaN(tanggalObj.getTime())) {
         if (tanggalObj > latestDate) {
           latestDate = tanggalObj;
           latestService = {
@@ -378,13 +386,19 @@ function saveSectionData(formData) {
         .setFontColor('white');
     }
 
-    // Sheet MASALAH: 8 kolom tetap [ID, Tanggal, Nama, Bagian, Item, Status, Keterangan, Foto]
+    // Sheet MASALAH: 9 kolom [ID, Tanggal, Nama, Bagian, Item, Status, Keterangan, Foto, Kendaraan]
     var sheetMasalah = ss.getSheetByName(CONFIG.SHEET_MASALAH);
     if (!sheetMasalah) {
       sheetMasalah = ss.insertSheet(CONFIG.SHEET_MASALAH);
-      var headerMasalah = ['ID', 'Tanggal', 'Nama Pemeriksa', 'Bagian', 'Item', 'Status', 'Keterangan', 'Foto'];
+      var headerMasalah = ['ID', 'Tanggal', 'Nama Pemeriksa', 'Bagian', 'Item', 'Status', 'Keterangan', 'Foto', 'Kendaraan'];
       sheetMasalah.getRange(1, 1, 1, headerMasalah.length).setValues([headerMasalah]);
       sheetMasalah.getRange(1, 1, 1, headerMasalah.length)
+        .setFontWeight('bold')
+        .setBackground('#dc3545')
+        .setFontColor('white');
+    } else if (sheetMasalah.getLastColumn() < 9) {
+      // Upgrade sheet lama (8 kolom): tambah header Kendaraan di kolom 9
+      sheetMasalah.getRange(1, 9).setValue('Kendaraan')
         .setFontWeight('bold')
         .setBackground('#dc3545')
         .setFontColor('white');
@@ -442,7 +456,8 @@ function saveSectionData(formData) {
           namaItem,
           status,
           keterangan,
-          fotoUrl
+          fotoUrl,
+          tipeKendaraan
         ]);
       }
     }
@@ -584,8 +599,10 @@ function getHistoryData(filterData) {
       return d + '-' + m + '-' + y;
     }
 
-    // 1. Data dasar dari Bagian 1 & Kesimpulan
-    var baseSheets = [CONFIG.SHEET_BAGIAN1, CONFIG.SHEET_KESIMPULAN];
+    // 1. Data dasar dari SEMUA sheet bagian + Kesimpulan.
+    //    (Frontend memakai navigasi bebas: bagian mana pun bisa disimpan dulu,
+    //    jadi ID pemeriksaan harus dikenali walau Bagian 1 belum tersimpan.)
+    var baseSheets = [CONFIG.SHEET_BAGIAN1, CONFIG.SHEET_BAGIAN2, CONFIG.SHEET_BAGIAN3, CONFIG.SHEET_BAGIAN4, CONFIG.SHEET_BAGIAN5, CONFIG.SHEET_KESIMPULAN];
 
     baseSheets.forEach(function (sheetName) {
       var sheet = ss.getSheetByName(sheetName);
@@ -623,10 +640,11 @@ function getHistoryData(filterData) {
       });
     });
 
-    // 2. Issue dari sheet MASALAH — 8 kolom: [ID,Tanggal,Nama,Bagian,Item,Status,Keterangan,Foto]
+    // 2. Issue dari sheet MASALAH — 9 kolom: [ID,Tanggal,Nama,Bagian,Item,Status,Keterangan,Foto,Kendaraan]
+    //    (Sheet lama 8 kolom tetap terbaca: kolom Kendaraan fallback ke data pemeriksaan.)
     var sheetMasalah = ss.getSheetByName(CONFIG.SHEET_MASALAH);
     if (sheetMasalah && sheetMasalah.getLastRow() >= 2) {
-      var dataMasalah = sheetMasalah.getRange(2, 1, sheetMasalah.getLastRow() - 1, 8).getValues();
+      var dataMasalah = sheetMasalah.getRange(2, 1, sheetMasalah.getLastRow() - 1, 9).getValues();
       dataMasalah.forEach(function (row) {
         var id = row[0] ? String(row[0]).trim() : '';
         if (!id || !grouped[id]) return;
@@ -636,7 +654,8 @@ function getHistoryData(filterData) {
           item: row[4] && String(row[4]).trim() !== '' ? String(row[4]).trim() : '-',
           status: row[5] && String(row[5]).trim() !== '' ? String(row[5]).trim() : '-',
           keterangan: row[6] && String(row[6]).trim() !== '' ? String(row[6]).trim() : '-',
-          foto: row[7] && String(row[7]).trim() !== '' ? String(row[7]).trim() : '-'
+          foto: row[7] && String(row[7]).trim() !== '' ? String(row[7]).trim() : '-',
+          kendaraan: row[8] && String(row[8]).trim() !== '' ? String(row[8]).trim() : grouped[id].tipeKendaraan
         });
       });
     }
@@ -858,7 +877,7 @@ function getFolderInfo() {
 }
 
 function getVehicleInfo() {
-  return { full: CONFIG.VEHICLE_FULL };
+  return { full: CONFIG.VEHICLE_FULL, vehicles: CONFIG.VEHICLE_LIST.slice() };
 }
 
 function initializeData() {
@@ -871,10 +890,11 @@ function initializeData() {
       masterSheet.getRange('A1:C1').setValues([
         ['Nama Pemeriksa', 'Koordinator Pengelola', 'Tipe Kendaraan']
       ]);
+      var seedVehicles = (CONFIG.VEHICLE_LIST && CONFIG.VEHICLE_LIST.length) ? CONFIG.VEHICLE_LIST : [CONFIG.VEHICLE_FULL];
       masterSheet.getRange('A2:C4').setValues([
-        ['Andi Pratama', 'Budi Santoso', CONFIG.VEHICLE_FULL],
-        ['Siti Rahayu', 'Citra Dewi', CONFIG.VEHICLE_FULL],
-        ['Dedi Kurniawan', 'Budi Santoso', CONFIG.VEHICLE_FULL]
+        ['Andi Irawan', 'Nur Kholis Majid', seedVehicles[0]],
+        ['Wahyu Setia Budi', 'Jefriyanzah Putra', seedVehicles[1 % seedVehicles.length]],
+        ['Edi Suryono', 'Nur Kholis Majid', seedVehicles[2 % seedVehicles.length]]
       ]);
     }
 

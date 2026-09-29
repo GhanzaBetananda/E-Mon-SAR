@@ -6,11 +6,31 @@
 const LOCAL_KEY = "emon_sar_local_v1";
 
 export const VEHICLES = [
-  { fullName: "Rescue Truck - W 8653 NP", shortName: "W 8653 NP", unit: "Rescue Truck" },
-  { fullName: "Rescue Car Carrier - W 8656 NP", shortName: "W 8656 NP", unit: "Rescue Car Carrier" },
-  { fullName: "Rescue Car - W 8658 NP", shortName: "W 8658 NP", unit: "Rescue Car" },
-  { fullName: "Motor Trail - B 3269 PDO", shortName: "B 3269 PDO", unit: "Motor Trail" },
-  { fullName: "Motor Trail - B 3838 PFO", shortName: "B 3838 PFO", unit: "Motor Trail" },
+  {
+    fullName: "Rescue Truck - W 8653 NP",
+    shortName: "W 8653 NP",
+    unit: "Rescue Truck",
+  },
+  {
+    fullName: "Rescue Car Carrier - W 8656 NP",
+    shortName: "W 8656 NP",
+    unit: "Rescue Car Carrier",
+  },
+  {
+    fullName: "Rescue Car - W 8658 NP",
+    shortName: "W 8658 NP",
+    unit: "Rescue Car",
+  },
+  {
+    fullName: "Motor Trail - B 3269 PDO",
+    shortName: "B 3269 PDO",
+    unit: "Motor Trail",
+  },
+  {
+    fullName: "Motor Trail - B 3838 PFO",
+    shortName: "B 3838 PFO",
+    unit: "Motor Trail",
+  },
 ];
 
 export const VEHICLE_FULL = VEHICLES[0].fullName;
@@ -18,7 +38,7 @@ export const VEHICLE_FULL = VEHICLES[0].fullName;
 // URL Web App Apps Script (paten). Ganti di sini kalau deploy ulang dengan URL baru.
 export const GAS_URL =
   import.meta.env?.VITE_GAS_URL ||
-  "https://script.google.com/macros/s/AKfycbweW_Ruy0eZLddlE2wQfLTUwZrXzZnyzMRjiBqfn3QkGuj2caaYcnWRWYjreD1dKUSx_Q/exec";
+  "https://script.google.com/macros/s/AKfycbwSRuVefkoMvm-cYdY59dEMxjqcARRwTU4Av3XI-FUW3LIBBQ-GnZTbHOqu8dfP4xNi2w/exec";
 
 export function isEmbedded() {
   return Boolean(window.google?.script?.run);
@@ -37,7 +57,10 @@ export function getConnectionMode() {
 function callEmbedded(method, args) {
   return new Promise((resolve, reject) => {
     try {
-      window.google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[method](...args);
+      window.google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(reject)
+        [method](...args);
     } catch (e) {
       reject(e);
     }
@@ -56,7 +79,9 @@ async function callWebApp(gasUrl, method, args) {
   try {
     json = JSON.parse(text);
   } catch {
-    throw new Error(`Respon Web App bukan JSON (HTTP ${res.status}). Pastikan URL /exec benar & deployment "Anyone".`);
+    throw new Error(
+      `Respon Web App bukan JSON (HTTP ${res.status}). Pastikan URL /exec benar & deployment "Anyone".`,
+    );
   }
   if (!json?.success) throw new Error(json?.error || `GAS error: ${method}`);
   return json.data;
@@ -65,7 +90,11 @@ async function callWebApp(gasUrl, method, args) {
 // ---------- Mock lokal (dev tanpa Sheet) ----------
 function readLocal() {
   try {
-    return JSON.parse(localStorage.getItem(LOCAL_KEY) || '{"saves":[],"history":[]}') || {};
+    return (
+      JSON.parse(
+        localStorage.getItem(LOCAL_KEY) || '{"saves":[],"history":[]}',
+      ) || {}
+    );
   } catch {
     return { saves: [], history: [] };
   }
@@ -85,8 +114,15 @@ async function callLocalMock(method, args) {
 
   if (method === "getDropdownData") {
     return {
-      namaPemeriksa: ["Andi Pratama", "Siti Rahayu", "Dedi Kurniawan"],
-      koorPengelola: ["Budi Santoso", "Citra Dewi"],
+      namaPemeriksa: [
+        "Andi Irawan",
+        "Wahyu Setia Budi",
+        "Edi Suryono",
+        "Dyan Susetyo Wibowo",
+        "Dekky Haeroel R",
+        "Kurniawan",
+      ],
+      koorPengelola: ["Nur Kholis Majid", "Jefriyanzah Putra"],
       _local: true,
     };
   }
@@ -123,17 +159,27 @@ async function callLocalMock(method, args) {
     };
     store.history.unshift(rec);
     writeLocal(store);
-    return { success: true, message: "Kesimpulan tersimpan (mode lokal)", _local: true };
+    return {
+      success: true,
+      message: "Kesimpulan tersimpan (mode lokal)",
+      _local: true,
+    };
   }
   if (method === "getHistoryData") {
     const f = args[0] || {};
     return store.history.filter((r) => {
-      if (f.bulan && r.tanggal?.slice(5, 7) !== String(f.bulan).padStart(2, "0")) return false;
+      if (
+        f.bulan &&
+        r.tanggal?.slice(5, 7) !== String(f.bulan).padStart(2, "0")
+      )
+        return false;
       if (f.tahun && r.tanggal?.slice(0, 4) !== String(f.tahun)) return false;
       return true;
     });
   }
-  throw new Error(`Method ${method} belum didukung mock lokal. Isi URL Web App untuk data Sheet asli.`);
+  throw new Error(
+    `Method ${method} belum didukung mock lokal. Isi URL Web App untuk data Sheet asli.`,
+  );
 }
 
 /**
@@ -145,15 +191,21 @@ export async function callGas(method, ...args) {
   const url = getGasUrl();
   if (url) return callWebApp(url, method, args);
   const err = new Error(
-    "Backend Sheet belum tersambung. Isi URL Web App (/exec) di pengaturan bawah, atau deploy Code.gs dulu."
+    "Backend Sheet belum tersambung. Isi URL Web App (/exec) di pengaturan bawah, atau deploy Code.gs dulu.",
   );
   err.code = "NO_BACKEND";
   // Untuk read-only (dropdown/service/history) fallback ke mock agar form tetap bisa dibuka.
   // Untuk save, tetap lempar error supaya user tidak mengira data masuk Sheet.
-  if (method === "getDropdownData" || method === "getLastServiceInfo" || method === "getHistoryData") {
+  if (
+    method === "getDropdownData" ||
+    method === "getLastServiceInfo" ||
+    method === "getHistoryData"
+  ) {
     try {
       const data = await callLocalMock(method, args);
-      console.warn(`[E-Mon SAR] ${method} memakai data lokal (belum tersambung ke Sheet).`);
+      console.warn(
+        `[E-Mon SAR] ${method} memakai data lokal (belum tersambung ke Sheet).`,
+      );
       return data;
     } catch {
       throw err;
