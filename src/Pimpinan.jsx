@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import "./Pimpinan.css";
 import { callGas, VEHICLES } from "./lib/gas.js";
 import { SECTIONS, REPORT_COLUMNS } from "./lib/sections.js";
+import Swal, { showError, showSuccessToast } from "./lib/swal.js";
 
 const MONTH_NAMES = [
   "Januari", "Februari", "Maret", "April", "Mei", "Juni",
@@ -42,6 +43,14 @@ function matchVehicle(recordVehicle, filter) {
 
 function slug(s) {
   return String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+}
+
+function pfStatusLabel(v) {
+  if (v === "menunggu") return "Menunggu";
+  if (v === "disetujui") return "Disetujui";
+  if (v === "ditolak") return "Ditolak";
+  if (v === "belum") return "Belum diajukan";
+  return v;
 }
 
 /** Pecah "Rescue Truck - W 8653 NP" -> { unit, plate, full }. */
@@ -187,11 +196,14 @@ function currentYearMonth() {
 
 export default function Pimpinan({ onExit }) {
   const [records, setRecords] = useState([]);
+  const [pengajuan, setPengajuan] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [filterDate, setFilterDate] = useState(""); // YYYY-MM-DD
-  const [filterMonth, setFilterMonth] = useState(""); // YYYY-MM
-  const [statusFilter, setStatusFilter] = useState("semua");
+  const [pfMonth, setPfMonth] = useState(""); // YYYY-MM
+  const [pfVehicle, setPfVehicle] = useState("semua");
+  const [pfStatus, setPfStatus] = useState("semua"); // semua|menunggu|disetujui|ditolak|belum
+  const [viewPdf, setViewPdf] = useState(null);
+  const [validating, setValidating] = useState(null);
   // Laporan bulanan (PDF)
   const [reportMonth, setReportMonth] = useState(currentYearMonth);
   const [reportVehicle, setReportVehicle] = useState("semua");
@@ -211,44 +223,69 @@ export default function Pimpinan({ onExit }) {
       console.error(e);
       setError(e?.message || "Gagal memuat data.");
       setRecords([]);
+    }
+    try {
+      const peng = await callGas("getPengajuan");
+      setPengajuan(Array.isArray(peng) ? peng : []);
+    } catch (e) {
+      console.error("Gagal memuat pengajuan:", e);
+      setPengajuan([]);
     } finally {
       setLoading(false);
     }
   }
 
-  const filtered = useMemo(() => {
-    return records
-      .map((r) => {
-        const issues = (r?.issues || []).filter((it) => {
-          const st = String(it?.status || "").toLowerCase();
-          // Hanya temuan: buang yang "Baik" / kosong
-          if (st === "baik" || st === "" || st === "-") return false;
-          if (statusFilter !== "semua" && st !== statusFilter) return false;
-          return true;
-        });
-        return { ...r, _issues: issues, _iso: toISO(r?.tanggal) };
-      })
-      .filter((r) => {
-        if (r._issues.length === 0) return false;
-        if (filterDate && r._iso !== filterDate) return false;
-        if (filterMonth && r._iso.slice(0, 7) !== filterMonth) return false;
-        return true;
-      })
-      .sort((a, b) => (b._iso || "").localeCompare(a._iso || ""));
-  }, [records, filterDate, filterMonth, statusFilter]);
+  const pengMap = useMemo(() => {
+    const map = {};
+    pengajuan.forEach((p) => {
+      if (p?.id) map[p.id] = p;
+    });
+    return map;
+  }, [pengajuan]);
 
-  const stats = useMemo(() => {
-    let rusak = 0;
-    let tidak = 0;
-    filtered.forEach((r) =>
-      r._issues.forEach((it) => {
-        const st = String(it?.status || "").toLowerCase();
-        if (st === "rusak") rusak += 1;
-        else tidak += 1;
-      })
-    );
-    return { total: rusak + tidak, rusak, tidak, pemeriksaan: filtered.length };
-  }, [filtered]);
+  function pengajuanStatus(r) {
+    return pengMap[r.id]?.status || "Belum diajukan";
+  }
+
+  function countTemuan(r) {
+    return (r?.issues || []).filter((it) => {
+      const st = String(it?.status || "").toLowerCase();
+      return st !== "baik" && st !== "" && st !== "-";
+    }).length;
+  }
+
+  const allRecords = useMemo(() => {
+    return records
+      .map((r) => ({ ...r, _iso: toISO(r?.tanggal) }))
+      .sort((a, b) => (b._iso || "").localeCompare(a._iso || ""));
+  }, [records]);
+
+  const pengajuanList = useMemo(() => {
+    return allRecords.filter((r) => {
+      if (pfMonth && r._iso.slice(0, 7) !== pfMonth) return false;
+      if (!matchVehicle(r?.tipeKendaraan, pfVehicle)) return false;
+      if (pfStatus !== "semua") {
+        const st = pengMap[r.id]?.status || "Belum diajukan";
+        if (pfStatus === "belum") {
+          if (st !== "Belum diajukan") return false;
+        } else if (st.toLowerCase() !== pfStatus) return false;
+      }
+      return true;
+    });
+  }, [allRecords, pengMap, pfMonth, pfVehicle, pfStatus]);
+
+  const pengStats = useMemo(() => {
+    let menunggu = 0;
+    let disetujui = 0;
+    let ditolak = 0;
+    pengajuanList.forEach((r) => {
+      const st = pengMap[r.id]?.status || "Belum diajukan";
+      if (st === "Menunggu") menunggu += 1;
+      else if (st === "Disetujui") disetujui += 1;
+      else if (st === "Ditolak") ditolak += 1;
+    });
+    return { menunggu, disetujui, ditolak, total: pengajuanList.length };
+  }, [pengajuanList, pengMap]);
 
   // Data laporan bulanan: SEMUA pemeriksaan pada bulan terpilih (termasuk yang tanpa temuan)
   const reportRecords = useMemo(() => {
@@ -263,12 +300,109 @@ export default function Pimpinan({ onExit }) {
       .sort((a, b) => (a._iso || "").localeCompare(b._iso || ""));
   }, [records, showReport, reportMonth, reportVehicle]);
 
-  const hasFilter = filterDate || filterMonth || statusFilter !== "semua";
+  const pfHasFilter = pfMonth !== "" || pfVehicle !== "semua" || pfStatus !== "semua";
 
-  function resetFilter() {
-    setFilterDate("");
-    setFilterMonth("");
-    setStatusFilter("semua");
+  function resetPengajuanFilter() {
+    setPfMonth("");
+    setPfVehicle("semua");
+    setPfStatus("semua");
+  }
+
+  async function refreshPengajuan() {
+    try {
+      const peng = await callGas("getPengajuan");
+      setPengajuan(Array.isArray(peng) ? peng : []);
+    } catch (e) {
+      console.error("Gagal memuat pengajuan:", e);
+    }
+  }
+
+  async function handleSetujui(r) {
+    const res = await Swal.fire({
+      title: "Setujui pengajuan?",
+      text: `${r.tipeKendaraan || "-"} — ${displayDate(r.tanggal)}`,
+      input: "text",
+      inputLabel: "Nama validator",
+      inputPlaceholder: "cth. Nur Kholis Majid",
+      showCancelButton: true,
+      confirmButtonText: "Setujui",
+      cancelButtonText: "Batal",
+      confirmButtonColor: "#16a34a",
+      inputValidator: (v) => (!String(v || "").trim() ? "Isi nama validator dahulu." : undefined),
+    });
+    if (!res.isConfirmed) return;
+    setValidating(r.id);
+    try {
+      const out = await callGas("validasiPengajuan", {
+        id: r.id,
+        status: "Disetujui",
+        validator: res.value.trim(),
+        catatan: "",
+      });
+      if (!out?.success) throw new Error(out?.message || "Gagal menyimpan validasi");
+      await refreshPengajuan();
+      await showSuccessToast("Pengajuan disetujui", r.tipeKendaraan || "");
+    } catch (e) {
+      console.error(e);
+      await showError("Gagal memvalidasi", e?.message || "Terjadi kesalahan");
+    } finally {
+      setValidating(null);
+    }
+  }
+
+  async function handleTolak(r) {
+    const res = await Swal.fire({
+      title: "Tolak pengajuan?",
+      text: `${r.tipeKendaraan || "-"} — ${displayDate(r.tanggal)}`,
+      html:
+        '<input id="pj-validator" class="swal2-input" placeholder="Nama validator">' +
+        '<textarea id="pj-catatan" class="swal2-textarea" placeholder="Alasan penolakan (opsional)"></textarea>',
+      focusConfirm: false,
+      showCancelButton: true,
+      confirmButtonText: "Tolak",
+      cancelButtonText: "Batal",
+      confirmButtonColor: "#b42318",
+      preConfirm: () => {
+        const validator = document.getElementById("pj-validator")?.value.trim() || "";
+        const catatan = document.getElementById("pj-catatan")?.value.trim() || "";
+        if (!validator) Swal.showValidationMessage("Isi nama validator dahulu.");
+        return { validator, catatan };
+      },
+    });
+    if (!res.isConfirmed) return;
+    setValidating(r.id);
+    try {
+      const out = await callGas("validasiPengajuan", {
+        id: r.id,
+        status: "Ditolak",
+        validator: res.value.validator,
+        catatan: res.value.catatan,
+      });
+      if (!out?.success) throw new Error(out?.message || "Gagal menyimpan validasi");
+      await refreshPengajuan();
+      await showSuccessToast("Pengajuan ditolak", r.tipeKendaraan || "");
+    } catch (e) {
+      console.error(e);
+      await showError("Gagal memvalidasi", e?.message || "Terjadi kesalahan");
+    } finally {
+      setValidating(null);
+    }
+  }
+
+  function openPdf(r) {
+    setShowReport(false);
+    setViewPdf(r);
+    window.scrollTo({ top: 0 });
+  }
+
+  function printSinglePdf() {
+    if (!viewPdf) return;
+    const prev = document.title;
+    document.title = `PDF E-Mon SAR - ${viewPdf.tipeKendaraan || viewPdf.id} - ${viewPdf._iso || ""}`;
+    window.print();
+    setTimeout(() => {
+      document.title = prev;
+    }, 800);
   }
 
   function handlePrint() {
@@ -282,7 +416,7 @@ export default function Pimpinan({ onExit }) {
   }
 
   return (
-    <div className={showReport ? "page report-mode" : "page"}>
+    <div className={showReport || viewPdf ? "page report-mode" : "page"}>
       <header className="topbar">
         <div className="topbar-inner">
           <div className="brand">
@@ -300,7 +434,7 @@ export default function Pimpinan({ onExit }) {
             </div>
             <div>
               <div className="brand-title">Panel Pimpinan</div>
-              <div className="brand-sub">E-Mon SAR &middot; Temuan pemeriksaan</div>
+              <div className="brand-sub">E-Mon SAR &middot; Validasi pemeriksaan</div>
             </div>
           </div>
           <button type="button" className="pim-back" onClick={onExit}>
@@ -312,15 +446,12 @@ export default function Pimpinan({ onExit }) {
       <div className="wrap pim-wrap">
         <section className="pim-hero">
           <div>
-            <div className="eyebrow">Semua kendaraan operasional</div>
-            <h1>Temuan Tidak Standart &amp; Rusak</h1>
+            <div className="eyebrow">Pengajuan dari pemeriksa via WhatsApp</div>
+            <h1>Daftar PDF Pengecekan Kendaraan</h1>
             <p>
-              {filterDate
-                ? <>Tanggal {displayDate(filterDate)}</>
-                : filterMonth
-                  ? <>Bulan {displayMonth(filterMonth)}</>
-                  : "Semua periode"}
-              {statusFilter !== "semua" ? <> &middot; {statusFilter}</> : ""}
+              {pfMonth ? <>Bulan {displayMonth(pfMonth)}</> : "Semua periode"}
+              {pfVehicle !== "semua" ? <> &middot; {pfVehicle}</> : ""}
+              {pfStatus !== "semua" ? <> &middot; {pfStatusLabel(pfStatus)}</> : ""}
             </p>
           </div>
           <button type="button" className="btn primary" onClick={load} disabled={loading}>
@@ -329,21 +460,21 @@ export default function Pimpinan({ onExit }) {
         </section>
 
         <div className="pim-stats">
-          <div className="pim-stat">
-            <span className="pim-stat-num">{stats.total}</span>
-            <span className="pim-stat-label">Total temuan</span>
+          <div className="pim-stat is-warn">
+            <span className="pim-stat-num">{pengStats.menunggu}</span>
+            <span className="pim-stat-label">Menunggu validasi</span>
+          </div>
+          <div className="pim-stat is-ok">
+            <span className="pim-stat-num">{pengStats.disetujui}</span>
+            <span className="pim-stat-label">Disetujui</span>
           </div>
           <div className="pim-stat is-danger">
-            <span className="pim-stat-num">{stats.rusak}</span>
-            <span className="pim-stat-label">Rusak</span>
-          </div>
-          <div className="pim-stat is-warn">
-            <span className="pim-stat-num">{stats.tidak}</span>
-            <span className="pim-stat-label">Tidak standart</span>
+            <span className="pim-stat-num">{pengStats.ditolak}</span>
+            <span className="pim-stat-label">Ditolak</span>
           </div>
           <div className="pim-stat">
-            <span className="pim-stat-num">{stats.pemeriksaan}</span>
-            <span className="pim-stat-label">Pemeriksaan bermasalah</span>
+            <span className="pim-stat-num">{pengStats.total}</span>
+            <span className="pim-stat-label">Total pemeriksaan</span>
           </div>
         </div>
 
@@ -397,7 +528,7 @@ export default function Pimpinan({ onExit }) {
             <button
               className="btn primary"
               type="button"
-              onClick={() => setShowReport(true)}
+              onClick={() => { setViewPdf(null); setShowReport(true); }}
               disabled={loading || !reportMonth}
             >
               {loading ? "Memuat…" : "▤ Tampilkan Pratinjau"}
@@ -432,38 +563,73 @@ export default function Pimpinan({ onExit }) {
           </>
         )}
 
+        {viewPdf && (
+          <>
+            <section className="report-paper" aria-label="PDF pengecekan kendaraan">
+              <InspectionPage record={viewPdf} />
+            </section>
+            <div className="action-bar no-print">
+              <button type="button" className="btn ghost" onClick={() => setViewPdf(null)}>
+                ← Tutup
+              </button>
+              <div className="action-hint report-hint">
+                PDF: <strong>{viewPdf.tipeKendaraan || "-"}</strong>
+                {viewPdf.tanggal ? ` • ${displayDate(viewPdf.tanggal)}` : ""}
+              </div>
+              <button type="button" className="btn primary" onClick={printSinglePdf}>
+                ⎙ Cetak / Simpan PDF
+              </button>
+            </div>
+          </>
+        )}
+
         <section className="card pim-filters">
+          <div className="card-head">
+            <div>
+              <h2>Daftar pengajuan</h2>
+              <p>Semua PDF pengecekan kendaraan. Saring, lihat PDF, lalu validasi.</p>
+            </div>
+            <span className="card-no">☰</span>
+          </div>
           <div className="field-grid cols-3">
             <label className="field">
-              <span>Filter tanggal</span>
-              <input
-                type="date"
-                value={filterDate}
-                onChange={(e) => setFilterDate(e.target.value)}
-              />
-            </label>
-            <label className="field">
-              <span>Filter bulan</span>
+              <span>Bulan</span>
               <input
                 type="month"
-                value={filterMonth}
-                onChange={(e) => setFilterMonth(e.target.value)}
+                value={pfMonth}
+                onChange={(e) => setPfMonth(e.target.value)}
               />
             </label>
             <label className="field">
-              <span>Status</span>
+              <span>Kendaraan</span>
               <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                value={pfVehicle}
+                onChange={(e) => setPfVehicle(e.target.value)}
               >
-                <option value="semua">Semua temuan</option>
-                <option value="rusak">Rusak</option>
-                <option value="tidak standart">Tidak standart</option>
+                <option value="semua">Semua kendaraan</option>
+                {VEHICLES.map((v) => (
+                  <option value={v.fullName} key={v.fullName}>
+                    {v.unit} — {v.shortName}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>Status pengajuan</span>
+              <select
+                value={pfStatus}
+                onChange={(e) => setPfStatus(e.target.value)}
+              >
+                <option value="semua">Semua status</option>
+                <option value="menunggu">Menunggu</option>
+                <option value="disetujui">Disetujui</option>
+                <option value="ditolak">Ditolak</option>
+                <option value="belum">Belum diajukan</option>
               </select>
             </label>
           </div>
-          {hasFilter && (
-            <button type="button" className="btn ghost" onClick={resetFilter}>
+          {pfHasFilter && (
+            <button type="button" className="btn ghost" onClick={resetPengajuanFilter}>
               Reset filter
             </button>
           )}
@@ -471,7 +637,7 @@ export default function Pimpinan({ onExit }) {
 
         {loading ? (
           <div className="empty">
-            <strong>Memuat data temuan&hellip;</strong>
+            <strong>Memuat data&hellip;</strong>
             <p>Mohon tunggu sebentar.</p>
           </div>
         ) : error ? (
@@ -479,61 +645,72 @@ export default function Pimpinan({ onExit }) {
             <strong>Gagal memuat</strong>
             <p>{error}</p>
           </div>
-        ) : filtered.length === 0 ? (
+        ) : pengajuanList.length === 0 ? (
           <div className="empty">
-            <strong>Tidak ada temuan</strong>
+            <strong>Belum ada data</strong>
             <p>
-              {hasFilter
-                ? "Tidak ada data Tidak Standart / Rusak untuk filter tersebut."
-                : "Semua pemeriksaan dalam kondisi baik."}
+              {pfHasFilter
+                ? "Tidak ada pemeriksaan untuk filter tersebut."
+                : "Belum ada pemeriksaan tersimpan."}
             </p>
           </div>
         ) : (
           <div className="pim-list">
-            {filtered.map((r) => (
-              <article className="card pim-item" key={r.id}>
-                <div className="pim-item-top">
-                  <div>
-                    <strong>{r.namaPemeriksa || "-"}</strong>
-                    <div className="pim-item-meta">
-                      {displayDate(r.tanggal)} &middot; KM {r.kmKendaraan || "-"} &middot;{" "}
-                      {r.koorPengelola || "-"}
+            {pengajuanList.map((r) => {
+              const st = pengajuanStatus(r);
+              const info = pengMap[r.id];
+              const temuan = countTemuan(r);
+              const busy = validating === r.id;
+              return (
+                <article className="card pim-item" key={r.id}>
+                  <div className="pim-item-top">
+                    <div>
+                      <strong>{r.tipeKendaraan || "-"}</strong>
+                      <div className="pim-item-meta">
+                        {displayDate(r.tanggal)} &middot; {r.namaPemeriksa || "-"} &middot; KM {r.kmKendaraan || "-"}
+                      </div>
+                      <div className="pim-item-meta">
+                        Kesimpulan: {r.kesimpulan || "-"} &middot;{" "}
+                        {temuan === 0 ? "Tanpa temuan" : `${temuan} temuan`}
+                      </div>
+                      {info?.validator && (
+                        <div className="pim-item-meta">
+                          Divalidasi oleh {info.validator}
+                          {info.tanggalValidasi ? ` • ${displayDate(info.tanggalValidasi)}` : ""}
+                          {info.catatan ? ` — “${info.catatan}”` : ""}
+                        </div>
+                      )}
                     </div>
+                    <span className={`val-badge val-${slug(st)}`}>{st}</span>
                   </div>
-                  <span className="pim-count">
-                    {r._issues.length} temuan
-                  </span>
-                </div>
-                <ul className="pim-issues">
-                  {r._issues.map((it, i) => (
-                    <li key={i} className="pim-issue">
-                      <div className="pim-issue-main">
-                        <span className="pim-issue-part">{it.bagian || "-"}</span>
-                        <strong className="pim-issue-name">{it.item || "-"}</strong>
-                        {it.keterangan && it.keterangan !== "-" && (
-                          <span className="pim-issue-note">{it.keterangan}</span>
-                        )}
-                      </div>
-                      <div className="pim-issue-side">
-                        <span className={`issue-status st-${slug(it.status)}`}>
-                          {it.status}
-                        </span>
-                        {it.foto && it.foto !== "-" && String(it.foto).startsWith("http") && (
-                          <a
-                            href={it.foto}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="pim-photo"
-                          >
-                            Lihat foto
-                          </a>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </article>
-            ))}
+                  <div className="peng-actions no-print">
+                    <button type="button" className="btn ghost" onClick={() => openPdf(r)}>
+                      Lihat PDF
+                    </button>
+                    {st === "Menunggu" && (
+                      <>
+                        <button
+                          type="button"
+                          className="btn primary"
+                          disabled={busy}
+                          onClick={() => handleSetujui(r)}
+                        >
+                          {busy ? "Memproses…" : "Setujui"}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn danger"
+                          disabled={busy}
+                          onClick={() => handleTolak(r)}
+                        >
+                          Tolak
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
           </div>
         )}
 

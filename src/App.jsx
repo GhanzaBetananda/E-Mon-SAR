@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import "./App.css";
 import Pimpinan from "./Pimpinan.jsx";
 import {
+  PIMPINAN_WA_NUMBER,
   VEHICLES,
   callGas,
   fileToCompressedDataUrl,
@@ -107,6 +108,25 @@ function App() {
   });
   const [saving, setSaving] = useState(false);
   const [connMode] = useState(() => getConnectionMode());
+  // Pengajuan terakhir yang selesai disimpan (menunggu diajukan ke pimpinan)
+  const [lastSubmission, setLastSubmission] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("emon_sar_last_submission_v1") || "null");
+    } catch {
+      return null;
+    }
+  });
+  const [ajuanLoading, setAjuanLoading] = useState(false);
+
+  function persistSubmission(value) {
+    setLastSubmission(value);
+    try {
+      if (value) localStorage.setItem("emon_sar_last_submission_v1", JSON.stringify(value));
+      else localStorage.removeItem("emon_sar_last_submission_v1");
+    } catch {
+      /* abaikan */
+    }
+  }
 
   const vehicle = VEHICLES[vehicleIndex] || VEHICLES[0];
   const currentItems = itemsBySection[currentSection];
@@ -305,9 +325,14 @@ function App() {
       };
     });
 
+    // Pastikan selalu ada ID pemeriksaan sejak simpanan pertama
+    // (pengguna bisa mulai dari bagian mana pun karena navigasi bebas)
+    const activeId = checkId || `CHK-${Date.now()}`;
+    if (!checkId) setCheckId(activeId);
+
     const saveData = {
       section: currentSection,
-      id: checkId,
+      id: activeId,
       tipeKendaraan: vehicle.fullName,
       namaPemeriksa,
       koorPengelola,
@@ -355,14 +380,69 @@ function App() {
     try {
       const result = await callGas("saveKesimpulan", data);
       if (!result?.success) throw new Error(result?.message || "Gagal menyimpan kesimpulan");
+      // Simpan ringkasan untuk tahap "Ajukan ke Pimpinan"
+      persistSubmission({
+        id: data.id,
+        vehicleFull: data.tipeKendaraan,
+        unit: vehicle.unit,
+        short: vehicle.shortName,
+        tanggal: data.tanggal,
+        namaPemeriksa: data.namaPemeriksa,
+        km: data.kmKendaraan,
+        kesimpulan: data.kesimpulan,
+        diajukanAt: null,
+        dismissed: false,
+      });
       await showSuccess(
         "Pemeriksaan selesai",
-        `Semua bagian ${vehicle.unit} (${vehicle.shortName}) berhasil disimpan.`
+        `Semua bagian ${vehicle.unit} (${vehicle.shortName}) berhasil disimpan. Lanjutkan dengan "Ajukan ke Pimpinan".`
       );
       resetForm();
     } catch (error) {
       console.error(error);
       await showError("Gagal menyimpan", error?.message || "Terjadi kesalahan");
+    }
+  }
+
+  function dismissSubmission() {
+    if (!lastSubmission) return;
+    persistSubmission({ ...lastSubmission, dismissed: true });
+  }
+
+  async function handleAjukan() {
+    if (!lastSubmission || ajuanLoading) return;
+    setAjuanLoading(true);
+    try {
+      const result = await callGas("submitPengajuan", {
+        id: lastSubmission.id,
+        tipeKendaraan: lastSubmission.vehicleFull,
+        tanggal: lastSubmission.tanggal,
+        namaPemeriksa: lastSubmission.namaPemeriksa,
+        kmKendaraan: lastSubmission.km,
+        kesimpulan: lastSubmission.kesimpulan,
+      });
+      if (!result?.success) throw new Error(result?.message || "Gagal mengajukan");
+      const appUrl = window.location.origin + window.location.pathname;
+      const message =
+        `*E-MON SAR — Pengajuan Validasi Pemeriksaan*\n` +
+        `ID: ${lastSubmission.id}\n` +
+        `Kendaraan: ${lastSubmission.vehicleFull}\n` +
+        `Tanggal periksa: ${formatDateDisplay(lastSubmission.tanggal)}\n` +
+        `Pemeriksa: ${lastSubmission.namaPemeriksa}\n` +
+        `KM: ${lastSubmission.km}\n` +
+        `Kesimpulan: ${lastSubmission.kesimpulan}\n\n` +
+        `Mohon validasi di Panel Pimpinan (lihat PDF & Setujui/Tolak):\n${appUrl}`;
+      window.open(
+        `https://wa.me/${PIMPINAN_WA_NUMBER}?text=${encodeURIComponent(message)}`,
+        "_blank"
+      );
+      persistSubmission({ ...lastSubmission, diajukanAt: new Date().toISOString() });
+      await showSuccessToast("Pengajuan dikirim", "Menunggu validasi pimpinan.");
+    } catch (error) {
+      console.error(error);
+      await showError("Gagal mengajukan", error?.message || "Terjadi kesalahan");
+    } finally {
+      setAjuanLoading(false);
     }
   }
 
@@ -441,7 +521,7 @@ function App() {
             </h1>
             <p className="hero-desc">
               Formulir pengecekan berkala 5 bagian. Pilih kendaraan, nilai setiap item,
-              lalu simpan per bagian. Bebas pindah bagian kapan saja.
+              simpan per bagian, lalu ajukan ke pimpinan via WhatsApp untuk divalidasi.
             </p>
           </div>
           <div className="hero-side">
@@ -459,6 +539,49 @@ function App() {
             </div>
           </div>
         </section>
+
+        {lastSubmission && !lastSubmission.dismissed && (
+          <section className="card submit-card" aria-label="Pengajuan ke pimpinan">
+            <div className="card-head">
+              <div>
+                <h2>
+                  {lastSubmission.diajukanAt
+                    ? "Menunggu validasi pimpinan"
+                    : "Siap diajukan ke pimpinan"}
+                </h2>
+                <p>
+                  {lastSubmission.diajukanAt
+                    ? "Pengajuan sudah dikirim. Pantau statusnya di Panel Pimpinan."
+                    : "Pemeriksaan sudah tersimpan. Klik tombol di bawah untuk mengajukan via WhatsApp."}
+                </p>
+              </div>
+              <span className="card-no">{lastSubmission.diajukanAt ? "◷" : "➤"}</span>
+            </div>
+            <dl className="submit-grid">
+              <div><dt>Kendaraan</dt><dd>{lastSubmission.unit} — {lastSubmission.short}</dd></div>
+              <div><dt>Tanggal</dt><dd>{formatDateDisplay(lastSubmission.tanggal)}</dd></div>
+              <div><dt>Pemeriksa</dt><dd>{lastSubmission.namaPemeriksa}</dd></div>
+              <div><dt>Kesimpulan</dt><dd>{lastSubmission.kesimpulan}</dd></div>
+            </dl>
+            <div className="submit-actions">
+              <button
+                type="button"
+                className="btn wa"
+                onClick={handleAjukan}
+                disabled={ajuanLoading}
+              >
+                {ajuanLoading
+                  ? "Mengirim…"
+                  : lastSubmission.diajukanAt
+                    ? "Kirim ulang via WhatsApp"
+                    : "Ajukan ke Pimpinan via WhatsApp"}
+              </button>
+              <button type="button" className="btn ghost" onClick={dismissSubmission}>
+                {lastSubmission.diajukanAt ? "Tutup" : "Nanti saja"}
+              </button>
+            </div>
+          </section>
+        )}
 
         <main>
           <form id="checkForm" onSubmit={handleSubmit}>

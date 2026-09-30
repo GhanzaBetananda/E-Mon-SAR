@@ -33,6 +33,7 @@ const CONFIG = {
   SHEET_BAGIAN5: 'Bagian 5 - Roda & Ban',
   SHEET_KESIMPULAN: 'Kesimpulan Pemeriksaan',
   SHEET_MASALAH: 'MASALAH',
+  SHEET_VALIDASI: 'Validasi Pengajuan',
   // ID folder Drive untuk foto bukti — ganti dengan ID folder Anda
   FOLDER_ID: '1fWHuACnyNWgd5dq7lASJg38w2A-cuHZ1',
   // HARUS sama persis dengan VEHICLES di src/lib/gas.js React
@@ -67,6 +68,12 @@ function _route(method, params) {
       return saveKesimpulan(params[0]);
     case 'getHistoryData':
       return getHistoryData(params[0]);
+    case 'submitPengajuan':
+      return submitPengajuan(params[0]);
+    case 'getPengajuan':
+      return getPengajuan();
+    case 'validasiPengajuan':
+      return validasiPengajuan(params[0]);
     case 'getVehicleInfo':
       return getVehicleInfo();
     case 'getFolderInfo':
@@ -559,6 +566,120 @@ function saveKesimpulan(formData) {
     sheet.autoResizeColumns(1, rowData.length);
 
     return { success: true, message: 'Kesimpulan berhasil disimpan' };
+  } catch (error) {
+    return { success: false, message: error.toString() };
+  }
+}
+
+// ==================== PENGAJUAN & VALIDASI PIMPINAN ====================
+// Alur: pemeriksa klik "Ajukan ke Pimpinan" (via WhatsApp) -> submitPengajuan
+// (Status 'Menunggu') -> pimpinan Setujui/Tolak di Panel Pimpinan.
+// Sheet Validasi Pengajuan: 11 kolom
+// [ID, Tanggal Pengajuan, Tipe Kendaraan, Tanggal Periksa, Nama Pemeriksa,
+//  KM, Kesimpulan, Status, Validator, Tanggal Validasi, Catatan]
+// Status: 'Menunggu' | 'Disetujui' | 'Ditolak'
+
+function getValidasiSheet_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(CONFIG.SHEET_VALIDASI);
+  if (!sheet) {
+    sheet = ss.insertSheet(CONFIG.SHEET_VALIDASI);
+    var headers = ['ID', 'Tanggal Pengajuan', 'Tipe Kendaraan', 'Tanggal Periksa',
+      'Nama Pemeriksa', 'KM', 'Kesimpulan', 'Status', 'Validator',
+      'Tanggal Validasi', 'Catatan'];
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sheet.getRange(1, 1, 1, headers.length)
+      .setFontWeight('bold')
+      .setBackground('#0f172a')
+      .setFontColor('white');
+  }
+  return sheet;
+}
+
+function findValidasiRow_(sheet, id) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return 0;
+  var ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (ids[i][0] && String(ids[i][0]).trim() === String(id).trim()) return i + 2;
+  }
+  return 0;
+}
+
+function submitPengajuan(d) {
+  try {
+    d = d || {};
+    if (!d.id) throw new Error('ID pemeriksaan wajib diisi');
+    var sheet = getValidasiSheet_();
+    var now = getTodayDateOnly();
+    var existing = findValidasiRow_(sheet, d.id);
+    if (existing > 0) {
+      // Diajukan ulang (mis. setelah ditolak): kembali ke Menunggu
+      sheet.getRange(existing, 2).setValue(now);
+      sheet.getRange(existing, 8).setValue('Menunggu');
+      sheet.getRange(existing, 9, 1, 3).setValues([['', '', '']]);
+    } else {
+      sheet.appendRow([
+        d.id,
+        now,
+        d.tipeKendaraan || '',
+        formatDateOnly(d.tanggal),
+        d.namaPemeriksa || '',
+        d.kmKendaraan || '',
+        d.kesimpulan || '',
+        'Menunggu',
+        '', '', ''
+      ]);
+    }
+    return { success: true, id: d.id, status: 'Menunggu' };
+  } catch (error) {
+    return { success: false, message: error.toString() };
+  }
+}
+
+function getPengajuan() {
+  try {
+    var sheet = getValidasiSheet_();
+    var lastRow = sheet.getLastRow();
+    if (lastRow < 2) return [];
+    var data = sheet.getRange(2, 1, lastRow - 1, 11).getValues();
+    var out = data.map(function (row) {
+      return {
+        id: row[0] ? String(row[0]).trim() : '',
+        tanggalPengajuan: formatDateOnly(row[1]),
+        tipeKendaraan: row[2] ? String(row[2]).trim() : '',
+        tanggalPeriksa: formatDateOnly(row[3]),
+        namaPemeriksa: row[4] || '',
+        kmKendaraan: row[5] || '',
+        kesimpulan: row[6] || '',
+        status: row[7] ? String(row[7]).trim() : 'Menunggu',
+        validator: row[8] || '',
+        tanggalValidasi: formatDateOnly(row[9]),
+        catatan: row[10] || ''
+      };
+    }).filter(function (r) { return r.id !== ''; });
+    out.reverse();
+    return out;
+  } catch (err) {
+    console.error('getPengajuan ERROR:', err);
+    return [];
+  }
+}
+
+function validasiPengajuan(d) {
+  try {
+    d = d || {};
+    if (!d.id) throw new Error('ID pemeriksaan wajib diisi');
+    var st = String(d.status || '').trim();
+    if (st !== 'Disetujui' && st !== 'Ditolak') throw new Error('Status harus Disetujui atau Ditolak');
+    var sheet = getValidasiSheet_();
+    var rowIndex = findValidasiRow_(sheet, d.id);
+    if (rowIndex === 0) throw new Error('Pengajuan tidak ditemukan: ' + d.id);
+    sheet.getRange(rowIndex, 8).setValue(st);
+    sheet.getRange(rowIndex, 9).setValue(d.validator || '');
+    sheet.getRange(rowIndex, 10).setValue(getTodayDateOnly());
+    sheet.getRange(rowIndex, 11).setValue(d.catatan || '');
+    return { success: true, id: d.id, status: st };
   } catch (error) {
     return { success: false, message: error.toString() };
   }

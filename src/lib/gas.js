@@ -35,6 +35,11 @@ export const VEHICLES = [
 
 export const VEHICLE_FULL = VEHICLES[0].fullName;
 
+// Nomor WhatsApp pimpinan (format internasional tanpa "+", tanpa spasi).
+// Contoh: 085930088301 -> 6285930088301. Ganti dengan nomor WA pimpinan.
+// Dipakai tombol "Ajukan ke Pimpinan" — chat terbuka dengan pesan terisi otomatis.
+export const PIMPINAN_WA_NUMBER = "6285930088301";
+
 // URL Web App Apps Script (paten). Ganti di sini kalau deploy ulang dengan URL baru.
 export const GAS_URL =
   import.meta.env?.VITE_GAS_URL ||
@@ -173,6 +178,54 @@ async function callLocalMock(method, args) {
       if (f.tahun && r.tanggal?.slice(0, 4) !== String(f.tahun)) return false;
       return true;
     });
+  }
+  if (method === "submitPengajuan") {
+    const d = args[0] || {};
+    store.pengajuan = store.pengajuan || [];
+    const now = new Date().toISOString().slice(0, 10);
+    const i = store.pengajuan.findIndex((p) => p.id === d.id);
+    if (i >= 0) {
+      store.pengajuan[i] = {
+        ...store.pengajuan[i],
+        status: "Menunggu",
+        tanggalPengajuan: now,
+        validator: "",
+        tanggalValidasi: "",
+        catatan: "",
+      };
+    } else {
+      store.pengajuan.unshift({
+        id: d.id,
+        tanggalPengajuan: now,
+        tipeKendaraan: d.tipeKendaraan || "",
+        tanggalPeriksa: d.tanggal || "",
+        namaPemeriksa: d.namaPemeriksa || "",
+        kmKendaraan: d.kmKendaraan || "",
+        kesimpulan: d.kesimpulan || "",
+        status: "Menunggu",
+        validator: "",
+        tanggalValidasi: "",
+        catatan: "",
+      });
+    }
+    writeLocal(store);
+    return { success: true, id: d.id, status: "Menunggu", _local: true };
+  }
+  if (method === "getPengajuan") {
+    store.pengajuan = store.pengajuan || [];
+    return store.pengajuan;
+  }
+  if (method === "validasiPengajuan") {
+    const d = args[0] || {};
+    store.pengajuan = store.pengajuan || [];
+    const rec = store.pengajuan.find((p) => p.id === d.id);
+    if (!rec) throw new Error(`Pengajuan tidak ditemukan: ${d.id}`);
+    rec.status = d.status;
+    rec.validator = d.validator || "";
+    rec.tanggalValidasi = new Date().toISOString().slice(0, 10);
+    rec.catatan = d.catatan || "";
+    writeLocal(store);
+    return { success: true, id: d.id, status: d.status, _local: true };
   }
   throw new Error(
     `Method ${method} belum didukung mock lokal. Isi URL Web App untuk data Sheet asli.`,
