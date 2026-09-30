@@ -126,6 +126,15 @@
 /* ---------- laporan bulanan (pratinjau di layar) ---------- */
 .report-builder { margin-bottom: 0; }
 
+/* Saat pratinjau terbuka, kartu bisa diklik untuk menutup */
+.report-builder.is-preview-open { cursor: pointer; }
+.report-builder.is-preview-open:hover { border-color: var(--ink); }
+.report-builder.is-preview-open:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+.report-builder.is-preview-open .report-form { cursor: default; }
+
 /* Form filter laporan: bulan | kendaraan | tombol sejajar */
 .report-form {
   display: grid;

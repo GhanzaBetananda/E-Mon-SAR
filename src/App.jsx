@@ -244,13 +244,25 @@ function App() {
   }
 
   function updateItem(index, field, value) {
-    setItemsBySection((previous) => ({
-      ...previous,
-      [currentSection]: {
-        ...previous[currentSection],
-        [index]: { ...previous[currentSection][index], [field]: value },
-      },
-    }));
+    setItemsBySection((previous) => {
+      const next = { ...previous[currentSection][index], [field]: value };
+      // Keterangan & foto hanya berlaku untuk temuan: bila status kembali
+      // ke Baik/kosong, bersihkan datanya agar tidak ikut tersimpan diam-diam.
+      if (field === "status" && value !== "Tidak Standart" && value !== "Rusak") {
+        next.keterangan = "";
+        next.fileData = null;
+        next.fileName = null;
+        next.fileType = null;
+        next.preview = null;
+      }
+      return {
+        ...previous,
+        [currentSection]: {
+          ...previous[currentSection],
+          [index]: next,
+        },
+      };
+    });
   }
 
   function removeFile(index) {
@@ -740,42 +752,46 @@ function App() {
                         ))}
                       </div>
 
-                      <div className="check-bottom">
-                        <input
-                          type="text"
-                          className="ghost-input"
-                          placeholder="Keterangan (opsional)…"
-                          value={itemData.keterangan}
-                          onChange={(e) => updateItem(index, "keterangan", e.target.value)}
-                        />
-                        <label className="upload-btn" htmlFor={inputId}>
-                          <svg viewBox="0 0 16 16" width="14" height="14" fill="none">
-                            <path
-                              d="M8 10V2M5 5l3-3 3 3M2.5 11v2.5A1 1 0 003.5 14.5h9a1 1 0 001-1V11"
-                              stroke="currentColor"
-                              strokeWidth="1.6"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
+                      {(itemData.status === "Tidak Standart" || itemData.status === "Rusak") && (
+                        <>
+                          <div className="check-bottom">
+                            <input
+                              type="text"
+                              className="ghost-input"
+                              placeholder="Keterangan (opsional)…"
+                              value={itemData.keterangan}
+                              onChange={(e) => updateItem(index, "keterangan", e.target.value)}
                             />
-                          </svg>
-                          {itemData.fileName ? "Ganti foto" : "Foto"}
-                          <input
-                            id={inputId}
-                            type="file"
-                            hidden
-                            accept="image/*"
-                            onChange={(e) => handleFileChange(index, e)}
-                          />
-                        </label>
-                      </div>
+                            <label className="upload-btn" htmlFor={inputId}>
+                              <svg viewBox="0 0 16 16" width="14" height="14" fill="none">
+                                <path
+                                  d="M8 10V2M5 5l3-3 3 3M2.5 11v2.5A1 1 0 003.5 14.5h9a1 1 0 001-1V11"
+                                  stroke="currentColor"
+                                  strokeWidth="1.6"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
+                              {itemData.fileName ? "Ganti foto" : "Foto"}
+                              <input
+                                id={inputId}
+                                type="file"
+                                hidden
+                                accept="image/*"
+                                onChange={(e) => handleFileChange(index, e)}
+                              />
+                            </label>
+                          </div>
 
-                      {itemData.fileName && (
-                        <div className="file-line">
-                          <span className="file-name">{itemData.fileName}</span>
-                          <button type="button" className="link-danger" onClick={() => removeFile(index)}>
-                            Hapus
-                          </button>
-                        </div>
+                          {itemData.fileName && (
+                            <div className="file-line">
+                              <span className="file-name">{itemData.fileName}</span>
+                              <button type="button" className="link-danger" onClick={() => removeFile(index)}>
+                                Hapus
+                              </button>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   );

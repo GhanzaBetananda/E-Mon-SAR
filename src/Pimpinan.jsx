@@ -263,15 +263,31 @@ export default function Pimpinan({ onExit }) {
           </div>
         </div>
 
-        <section className="card report-builder">
+        <section
+          className={`card report-builder ${showReport ? "is-preview-open" : ""}`}
+          onClick={() => {
+            if (showReport) setShowReport(false);
+          }}
+          onKeyDown={(e) => {
+            if (showReport && (e.key === "Escape" || (e.key === "Enter" && e.target === e.currentTarget))) {
+              setShowReport(false);
+            }
+          }}
+          tabIndex={showReport ? 0 : undefined}
+          title={showReport ? "Klik kartu ini untuk menutup pratinjau" : undefined}
+        >
           <div className="card-head">
             <div>
               <h2>Laporan Bulanan (PDF)</h2>
-              <p>Pilih bulan dan kendaraan, tampilkan pratinjau berkop surat, lalu cetak / simpan sebagai PDF.</p>
+              <p>
+                {showReport
+                  ? "Pratinjau ditampilkan di bawah. Klik kartu ini untuk menutup."
+                  : "Pilih bulan dan kendaraan, tampilkan pratinjau berkop surat, lalu cetak / simpan sebagai PDF."}
+              </p>
             </div>
             <span className="card-no">▤</span>
           </div>
-          <div className="report-form">
+          <div className="report-form" onClick={(e) => e.stopPropagation()}>
             <label className="field">
               <span>Bulan laporan</span>
               <input

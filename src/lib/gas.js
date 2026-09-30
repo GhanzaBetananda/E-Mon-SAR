@@ -57,10 +57,7 @@ export function getConnectionMode() {
 function callEmbedded(method, args) {
   return new Promise((resolve, reject) => {
     try {
-      window.google.script.run
-        .withSuccessHandler(resolve)
-        .withFailureHandler(reject)
-        [method](...args);
+      window.google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[method](...args);
     } catch (e) {
       reject(e);
     }
