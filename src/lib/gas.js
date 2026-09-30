@@ -43,7 +43,7 @@ export const PIMPINAN_WA_NUMBER = "6285930088301";
 // URL Web App Apps Script (paten). Ganti di sini kalau deploy ulang dengan URL baru.
 export const GAS_URL =
   import.meta.env?.VITE_GAS_URL ||
-  "https://script.google.com/macros/s/AKfycbyD6W-P0Kl3POgmQNfmn_OsS1ObOtKXA_Bbamn4U8MJ5SSQDaHOIT4y-Wy1UfNrtdRJug/exec";
+  "https://script.google.com/macros/s/AKfycbykYyMaSFhxcTZQCPs6Z_QCu-tBxdnn30lYvmE1nvIVeq7CVNBtweg8WaIjG_viSbPqGA/exec";
 
 export function isEmbedded() {
   return Boolean(window.google?.script?.run);
@@ -62,7 +62,10 @@ export function getConnectionMode() {
 function callEmbedded(method, args) {
   return new Promise((resolve, reject) => {
     try {
-      window.google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[method](...args);
+      window.google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(reject)
+        [method](...args);
     } catch (e) {
       reject(e);
     }
