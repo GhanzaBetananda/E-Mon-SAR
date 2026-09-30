@@ -604,11 +604,24 @@ function getHistoryData(filterData) {
     //    jadi ID pemeriksaan harus dikenali walau Bagian 1 belum tersimpan.)
     var baseSheets = [CONFIG.SHEET_BAGIAN1, CONFIG.SHEET_BAGIAN2, CONFIG.SHEET_BAGIAN3, CONFIG.SHEET_BAGIAN4, CONFIG.SHEET_BAGIAN5, CONFIG.SHEET_KESIMPULAN];
 
+    var sectionNoBySheet = {};
+    sectionNoBySheet[CONFIG.SHEET_BAGIAN1] = 1;
+    sectionNoBySheet[CONFIG.SHEET_BAGIAN2] = 2;
+    sectionNoBySheet[CONFIG.SHEET_BAGIAN3] = 3;
+    sectionNoBySheet[CONFIG.SHEET_BAGIAN4] = 4;
+    sectionNoBySheet[CONFIG.SHEET_BAGIAN5] = 5;
+
     baseSheets.forEach(function (sheetName) {
       var sheet = ss.getSheetByName(sheetName);
       if (!sheet) return;
       var lastRow = sheet.getLastRow();
       if (lastRow < 2) return;
+
+      var sectionNo = sectionNoBySheet[sheetName] || 0;
+      var labels = sectionNo >= 1 ? getItemLabelsForSection(sheetName) : [];
+      // Kolom 0-6: ID..Tanggal Service. Bagian 1: kolom 7 = BBM, item mulai kolom 8.
+      // Bagian 2-5: item mulai kolom 7. Tiap item = 3 kolom (Status, Keterangan, Foto).
+      var itemStart = sectionNo === 1 ? 8 : 7;
 
       var data = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
 
@@ -627,10 +640,25 @@ function getHistoryData(filterData) {
             tipeKendaraan: row[4] ? String(row[4]).trim() : CONFIG.VEHICLE_FULL,
             kmKendaraan: row[5] || '-',
             tanggalService: row[6] ? formatDMY(safeDate(row[6])) : '-',
+            bbm: '',
+            sections: {},
             issues: [],
             kesimpulan: '-',
             catatan: '-'
           };
+        }
+
+        if (sectionNo >= 1) {
+          var statuses = [];
+          for (var k = 0; k < labels.length; k++) {
+            var cell = row[itemStart + k * 3];
+            statuses.push(cell ? String(cell).trim() : '');
+          }
+          // Baris terakhir (simpanan terbaru) yang dipakai bila bagian disimpan ulang
+          grouped[id].sections[sectionNo] = { statuses: statuses };
+          if (sectionNo === 1 && row[7] !== undefined && row[7] !== null && String(row[7]).trim() !== '') {
+            grouped[id].bbm = String(row[7]).trim();
+          }
         }
 
         if (sheetName === CONFIG.SHEET_KESIMPULAN) {

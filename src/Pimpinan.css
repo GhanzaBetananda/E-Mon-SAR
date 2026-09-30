@@ -160,40 +160,93 @@
   font-family: Georgia, "Times New Roman", serif;
 }
 
-.kop { display: flex; align-items: center; gap: 16px; }
-.kop-logo { width: 74px; height: 74px; object-fit: contain; flex-shrink: 0; }
-.kop-text { flex: 1; text-align: center; }
-.kop-line1 { font-size: 17px; font-weight: 700; letter-spacing: 0.02em; }
-.kop-line2 { font-size: 16px; font-weight: 700; }
-.kop-line3 { font-size: 11.5px; margin-top: 5px; }
-.kop-rule { border-top: 3px double #000; margin: 12px 0 18px; }
+/* Kop formulir: judul kiri, logo 456 + 472 kanan */
+.kop-form { display: flex; align-items: center; gap: 16px; }
+.kop-form .kop-text { flex: 1; text-align: left; }
+.kop-form-title { font-size: 19px; font-weight: 700; letter-spacing: 0.02em; }
+.kop-form-sub { font-size: 14px; font-weight: 600; margin-top: 6px; letter-spacing: 0.04em; }
+.kop-logos { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.kop-logo { width: 68px; height: 68px; object-fit: contain; }
+.kop-rule { border-top: 3px double #000; margin: 10px 0 14px; }
 
-.report-title { text-align: center; margin-bottom: 8px; }
-.report-title h2 {
-  font-size: 15px;
-  margin: 0;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  letter-spacing: 0.02em;
+/* Satu halaman formulir per pemeriksaan */
+.report-page { page-break-inside: auto; }
+.report-page + .report-page {
+  margin-top: 28px;
+  padding-top: 28px;
+  border-top: 2px dashed #999;
 }
-.report-title p { margin: 5px 0 0; font-size: 12.5px; }
 
-.report-paper h3 { font-size: 13px; margin: 20px 0 8px; }
+/* Identitas kendaraan */
+.ident {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 28px;
+  margin-bottom: 14px;
+  font-size: 12px;
+}
+.ident-item { display: flex; align-items: baseline; gap: 6px; }
+.ident-item span { flex-shrink: 0; }
+.ident-item b { flex: 1; border-bottom: 1px dotted #555; padding-bottom: 1px; min-width: 0; }
 
-.report-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+/* Checklist 2 kolom: kiri Bagian 1-3, kanan Bagian 4-5 */
+.check-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+.check-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+.report-table { width: 100%; border-collapse: collapse; font-size: 11px; }
 .report-table th,
 .report-table td {
   border: 1px solid #000;
-  padding: 6px 8px;
+  padding: 5px 7px;
   vertical-align: top;
   text-align: left;
   overflow-wrap: anywhere;
 }
+.report-table thead { display: table-header-group; }
 .report-table th { background: #f0f0f0; text-align: center; }
 .report-table .center { text-align: center; }
-.report-table.summary { max-width: 460px; }
-.report-table.summary td.indent { padding-left: 24px; }
+.report-table .sec-title { text-align: left; font-size: 12px; }
+.report-table .st-col { width: 44px; }
 .report-table tr { page-break-inside: avoid; }
+.check-table td.center { font-weight: 700; font-size: 13px; }
+
+/* Legenda klasifikasi */
+.legend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: 11.5px;
+}
+.legend-title { font-weight: 700; }
+.lg {
+  border-radius: 6px;
+  padding: 3px 12px;
+  font-weight: 700;
+  border: 1px solid #000;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.lg-baik { background: #16a34a; color: #fff; }
+.lg-ts { background: #facc15; color: #111; }
+.lg-rusak { background: #dc2626; color: #fff; }
+
+/* Kotak catatan */
+.note-box {
+  border: 1.5px solid #000;
+  border-radius: 4px;
+  margin-top: 12px;
+  page-break-inside: avoid;
+}
+.note-box-title { font-size: 12px; font-weight: 700; padding: 6px 10px 0; }
+.note-box-body {
+  font-size: 12px;
+  padding: 2px 10px 8px;
+  min-height: 64px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 
 .report-nihil {
   font-size: 12px;
@@ -208,12 +261,12 @@
   display: flex;
   justify-content: space-between;
   gap: 24px;
-  margin-top: 30px;
+  margin-top: 26px;
   font-size: 12px;
   page-break-inside: avoid;
 }
-.report-sign > div { text-align: center; min-width: 220px; }
-.report-sign .sign-space { height: 64px; }
+.report-sign > div { text-align: center; min-width: 200px; }
+.report-sign .sign-space { height: 60px; }
 
 /* ---------- cetak PDF: hanya kertas laporan yang keluar ---------- */
 @page { size: A4; margin: 14mm 12mm; }
@@ -240,6 +293,12 @@
     margin: 0;
     max-width: none;
   }
+  .report-page + .report-page {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+    page-break-before: always;
+  }
   .report-table th {
     background: #f0f0f0 !important;
     -webkit-print-color-adjust: exact;
@@ -251,9 +310,11 @@
   .report-form { grid-template-columns: 1fr; }
   .report-form .btn { min-height: 46px; }
   .report-paper { padding: 22px 18px; }
-  .kop-logo { width: 52px; height: 52px; }
-  .kop-line1 { font-size: 14px; }
-  .kop-line2 { font-size: 13px; }
+  .kop-logo { width: 48px; height: 48px; }
+  .kop-form-title { font-size: 15px; }
+  .kop-form-sub { font-size: 12px; }
+  .ident { grid-template-columns: 1fr; }
+  .check-cols { grid-template-columns: 1fr; }
   .report-sign { flex-direction: column; }
   .pim-hero { flex-direction: column; align-items: stretch; }
   .pim-hero h1 { font-size: 18px; }

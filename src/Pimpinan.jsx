@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import "./Pimpinan.css";
 import { callGas, VEHICLES } from "./lib/gas.js";
+import { SECTIONS, REPORT_COLUMNS } from "./lib/sections.js";
 
 const MONTH_NAMES = [
   "Januari", "Februari", "Maret", "April", "Mei", "Juni",
   "Juli", "Agustus", "September", "Oktober", "November", "Desember",
 ];
-
-const DAY_NAMES = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
 
 /** "DD-MM-YYYY" (dari GAS) -> "YYYY-MM-DD". Kalau sudah ISO, kembalikan apa adanya. */
 function toISO(tgl) {
@@ -34,13 +33,6 @@ function displayMonth(ym) {
   return `${MONTH_NAMES[Number(mo) - 1] || mo} ${y}`;
 }
 
-function dayName(iso) {
-  if (!iso) return "";
-  const [y, mo, d] = iso.split("-").map(Number);
-  if (!y || !mo || !d) return "";
-  return DAY_NAMES[new Date(y, mo - 1, d).getDay()] || "";
-}
-
 function matchVehicle(recordVehicle, filter) {
   if (!filter || filter === "semua") return true;
   const a = String(recordVehicle || "").toLowerCase().trim();
@@ -50,6 +42,142 @@ function matchVehicle(recordVehicle, filter) {
 
 function slug(s) {
   return String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+}
+
+/** Pecah "Rescue Truck - W 8653 NP" -> { unit, plate, full }. */
+function parseVehicle(record) {
+  const full = String(record?.tipeKendaraan || "").trim();
+  const found = VEHICLES.find((v) => v.fullName.toLowerCase() === full.toLowerCase());
+  if (found) return { unit: found.unit, plate: found.shortName, full: found.fullName };
+  const dash = full.indexOf(" - ");
+  if (dash > 0) {
+    return { unit: full.slice(0, dash).trim(), plate: full.slice(dash + 3).trim(), full };
+  }
+  return { unit: full || "-", plate: "-", full: full || "-" };
+}
+
+/** Status satu item (kolom checklist) dari data sections backend. */
+function sectionStatus(record, sectionNo, itemIdx) {
+  const secs = record?.sections || {};
+  const sec = secs[sectionNo] ?? secs[String(sectionNo)];
+  const st = sec?.statuses?.[itemIdx];
+  return String(st || "").trim();
+}
+
+function SectionCheckTable({ no, record }) {
+  const items = SECTIONS[no].items;
+  return (
+    <table className="report-table check-table">
+      <thead>
+        <tr>
+          <th colSpan={4} className="sec-title">
+            Bagian {no} — {SECTIONS[no].title}
+          </th>
+        </tr>
+        <tr>
+          <th>Nama Bagian</th>
+          <th className="center st-col">Baik</th>
+          <th className="center st-col">Tidak Standart</th>
+          <th className="center st-col">Rusak</th>
+        </tr>
+      </thead>
+      <tbody>
+        {items.map((label, i) => {
+          const st = sectionStatus(record, no, i);
+          return (
+            <tr key={label}>
+              <td>{label}</td>
+              <td className="center">{st === "Baik" ? "✓" : ""}</td>
+              <td className="center">{st === "Tidak Standart" ? "✓" : ""}</td>
+              <td className="center">{st === "Rusak" ? "✓" : ""}</td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
+
+function InspectionPage({ record }) {
+  const v = parseVehicle(record);
+  const catatan = record?.catatan && record.catatan !== "-" ? record.catatan : "";
+  const bbm =
+    record?.bbm && String(record.bbm).trim() !== "" ? `${record.bbm} %` : "........";
+  return (
+    <section className="report-page" aria-label="Formulir pemeriksaan harian">
+      <div className="kop kop-form">
+        <div className="kop-text">
+          <div className="kop-form-title">
+            FORMAT PEMERIKSAAN HARIAN {v.unit.toUpperCase()}
+          </div>
+          <div className="kop-form-sub">BADAN NASIONAL PENCARIAN DAN PERTOLONGAN</div>
+        </div>
+        <div className="kop-logos">
+          <img
+            src="/456.png"
+            alt=""
+            className="kop-logo"
+            onError={(e) => (e.currentTarget.style.display = "none")}
+          />
+          <img
+            src="/472.png"
+            alt=""
+            className="kop-logo"
+            onError={(e) => (e.currentTarget.style.display = "none")}
+          />
+        </div>
+      </div>
+      <div className="kop-rule" />
+
+      <div className="ident">
+        <div className="ident-item"><span>Jenis Kendaraan</span><b>{v.unit}</b></div>
+        <div className="ident-item"><span>Tanggal Pemeriksaan</span><b>{displayDate(record.tanggal)}</b></div>
+        <div className="ident-item"><span>Tipe Kendaraan</span><b>{v.full}</b></div>
+        <div className="ident-item"><span>Nomor Polisi</span><b>{v.plate}</b></div>
+        <div className="ident-item"><span>Tahun Pengadaan</span><b>........</b></div>
+        <div className="ident-item"><span>BBM (%)</span><b>{bbm}</b></div>
+        <div className="ident-item"><span>KM</span><b>{record.kmKendaraan || "-"}</b></div>
+      </div>
+
+      <div className="check-cols">
+        {REPORT_COLUMNS.map((col, ci) => (
+          <div className="check-col" key={ci}>
+            {col.map((no) => (
+              <SectionCheckTable key={no} no={no} record={record} />
+            ))}
+          </div>
+        ))}
+      </div>
+
+      <div className="legend">
+        <span className="legend-title">Klasifikasi:</span>
+        <span className="lg lg-baik">Baik</span>
+        <span className="lg lg-ts">Tidak Standart</span>
+        <span className="lg lg-rusak">Rusak</span>
+      </div>
+
+      <div className="note-box">
+        <div className="note-box-title">Catatan:</div>
+        <div className="note-box-body">{catatan}</div>
+      </div>
+
+      <div className="report-sign">
+        <div>
+          <div>Kepala Sumber Daya</div>
+          <div className="sign-space" />
+          <div className="sign-name">( ............................................ )</div>
+          <div>NIP. ........................................</div>
+        </div>
+        <div>
+          <div>Banyuwangi, {displayDate(new Date().toISOString().split("T")[0])}</div>
+          <div>Koordinator Tim Siaga</div>
+          <div className="sign-space" />
+          <div className="sign-name">( ............................................ )</div>
+          <div>NIP. ........................................</div>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 function currentYearMonth() {
@@ -134,50 +262,6 @@ export default function Pimpinan({ onExit }) {
       })
       .sort((a, b) => (a._iso || "").localeCompare(b._iso || ""));
   }, [records, showReport, reportMonth, reportVehicle]);
-
-  const reportStats = useMemo(() => {
-    let layak = 0;
-    let perbaikan = 0;
-    let tidakLayak = 0;
-    let belum = 0;
-    let rusak = 0;
-    let tidak = 0;
-    reportRecords.forEach((r) => {
-      const k = String(r?.kesimpulan || "").toLowerCase();
-      if (k.includes("tidak layak")) tidakLayak += 1;
-      else if (k.includes("perbaikan")) perbaikan += 1;
-      else if (k.includes("layak")) layak += 1;
-      else belum += 1;
-      (r?.issues || []).forEach((it) => {
-        const st = String(it?.status || "").toLowerCase();
-        if (st === "baik" || st === "" || st === "-") return;
-        if (st === "rusak") rusak += 1;
-        else tidak += 1;
-      });
-    });
-    return {
-      pemeriksaan: reportRecords.length,
-      layak,
-      perbaikan,
-      tidakLayak,
-      belum,
-      rusak,
-      tidak,
-      temuan: rusak + tidak,
-    };
-  }, [reportRecords]);
-
-  const reportFindings = useMemo(() => {
-    const rows = [];
-    reportRecords.forEach((r) => {
-      (r?.issues || []).forEach((it) => {
-        const st = String(it?.status || "").toLowerCase();
-        if (st === "baik" || st === "" || st === "-") return;
-        rows.push({ record: r, issue: it });
-      });
-    });
-    return rows;
-  }, [reportRecords]);
 
   const hasFilter = filterDate || filterMonth || statusFilter !== "semua";
 
@@ -324,136 +408,13 @@ export default function Pimpinan({ onExit }) {
         {showReport && (
           <>
             <section className="report-paper" aria-label="Pratinjau laporan bulanan">
-              <div className="kop">
-                <img
-                  className="kop-logo"
-                  src="https://drive.google.com/thumbnail?id=1rHgTRxcaGXoVqdPfhL0o6tvuQIElBdw-&sz=w200"
-                  alt=""
-                  onError={(e) => (e.currentTarget.style.display = "none")}
-                />
-                <div className="kop-text">
-                  <div className="kop-line1">BADAN NASIONAL PENCARIAN DAN PERTOLONGAN</div>
-                  <div className="kop-line2">KANTOR PENCARIAN DAN PERTOLONGAN BANYUWANGI</div>
-                  <div className="kop-line3">
-                    Jl. Gatot Subroto No. 181, Bulusan, Kalipuro, Banyuwangi, Jawa Timur 68455
-                  </div>
-                </div>
-                <img
-                  className="kop-logo"
-                  src="https://drive.google.com/thumbnail?id=1F8f2vLI7oDd1EBCIXU9TU-d4_yV5cEUI&sz=w200"
-                  alt=""
-                  onError={(e) => (e.currentTarget.style.display = "none")}
-                />
-              </div>
-              <div className="kop-rule" />
-
-              <div className="report-title">
-                <h2>LAPORAN BULANAN HASIL PEMERIKSAAN KENDARAAN OPERASIONAL</h2>
-                <p>
-                  Bulan {displayMonth(reportMonth)}
-                  {reportVehicle !== "semua" ? ` • ${reportVehicle}` : " • Semua Kendaraan"}
-                </p>
-              </div>
-
-              <h3>I. Ringkasan</h3>
-              <table className="report-table summary">
-                <tbody>
-                  <tr><td>Jumlah pemeriksaan</td><td className="center">{reportStats.pemeriksaan} kali</td></tr>
-                  <tr><td>Layak operasi</td><td className="center">{reportStats.layak}</td></tr>
-                  <tr><td>Layak operasi dengan perbaikan</td><td className="center">{reportStats.perbaikan}</td></tr>
-                  <tr><td>Tidak layak operasi</td><td className="center">{reportStats.tidakLayak}</td></tr>
-                  <tr><td>Total temuan (Tidak Standart / Rusak)</td><td className="center">{reportStats.temuan}</td></tr>
-                  <tr><td className="indent">— Rusak</td><td className="center">{reportStats.rusak}</td></tr>
-                  <tr><td className="indent">— Tidak standart</td><td className="center">{reportStats.tidak}</td></tr>
-                </tbody>
-              </table>
-
-              <h3>II. Rekapitulasi Pemeriksaan</h3>
               {reportRecords.length === 0 ? (
                 <p className="report-nihil">Tidak ada data pemeriksaan pada periode ini.</p>
               ) : (
-                <table className="report-table">
-                  <thead>
-                    <tr>
-                      <th className="center">No</th>
-                      <th>Hari / Tanggal</th>
-                      <th>Kendaraan</th>
-                      <th>Nama Pemeriksa</th>
-                      <th className="center">KM</th>
-                      <th>Kesimpulan</th>
-                      <th className="center">Temuan</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {reportRecords.map((r, i) => {
-                      const temuan = (r?.issues || []).filter((it) => {
-                        const st = String(it?.status || "").toLowerCase();
-                        return st !== "baik" && st !== "" && st !== "-";
-                      }).length;
-                      return (
-                        <tr key={r.id || i}>
-                          <td className="center">{i + 1}</td>
-                          <td>{dayName(r._iso)}{dayName(r._iso) ? ", " : ""}{displayDate(r.tanggal)}</td>
-                          <td>{r.tipeKendaraan || "-"}</td>
-                          <td>{r.namaPemeriksa || "-"}</td>
-                          <td className="center">{r.kmKendaraan || "-"}</td>
-                          <td>{r.kesimpulan || "-"}</td>
-                          <td className="center">{temuan === 0 ? "-" : `${temuan} item`}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                reportRecords.map((r) => (
+                  <InspectionPage key={r.id || r._iso} record={r} />
+                ))
               )}
-
-              <h3>III. Rincian Temuan (Tidak Standart / Rusak)</h3>
-              {reportFindings.length === 0 ? (
-                <p className="report-nihil">Nihil — tidak ada temuan pada periode ini. Semua pemeriksaan dalam kondisi baik.</p>
-              ) : (
-                <table className="report-table">
-                  <thead>
-                    <tr>
-                      <th className="center">No</th>
-                      <th>Tanggal</th>
-                      <th>Kendaraan</th>
-                      <th>Bagian</th>
-                      <th>Item Pemeriksaan</th>
-                      <th className="center">Status</th>
-                      <th>Keterangan</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {reportFindings.map(({ record, issue }, i) => (
-                      <tr key={i}>
-                        <td className="center">{i + 1}</td>
-                        <td>{displayDate(record.tanggal)}</td>
-                        <td>{record.tipeKendaraan || "-"}</td>
-                        <td>{issue.bagian || "-"}</td>
-                        <td>{issue.item || "-"}</td>
-                        <td className="center">{issue.status || "-"}</td>
-                        <td>{issue.keterangan && issue.keterangan !== "-" ? issue.keterangan : "-"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-
-              <div className="report-sign">
-                <div>
-                  <div>Mengetahui,</div>
-                  <div>Kepala Kantor</div>
-                  <div className="sign-space" />
-                  <div className="sign-name">( ............................................ )</div>
-                  <div>NIP. ........................................</div>
-                </div>
-                <div>
-                  <div>Banyuwangi, {displayDate(new Date().toISOString().split("T")[0])}</div>
-                  <div>Koordinator Pengelola</div>
-                  <div className="sign-space" />
-                  <div className="sign-name">( ............................................ )</div>
-                  <div>NIP. ........................................</div>
-                </div>
-              </div>
             </section>
 
             <div className="action-bar no-print">
