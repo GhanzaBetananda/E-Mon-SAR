@@ -303,26 +303,9 @@ img { max-width: 100%; }
 .btn.wa { background: #16a34a; color: #fff; }
 .btn.wa:hover:not(:disabled) { background: #15803d; transform: translateY(-1px); }
 
-/* ---------- kartu pengajuan ke pimpinan ---------- */
-.submit-card { border-left: 3px solid #16a34a; }
-.submit-grid {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
-  margin: 0 0 12px;
-}
-.submit-grid > div {
-  background: #f6fef9; border: 1px solid var(--success-border);
-  border-radius: 10px; padding: 8px 12px; min-width: 0;
-}
-.submit-grid dt {
-  font-size: 11px; font-weight: 600; text-transform: uppercase;
-  letter-spacing: .05em; color: var(--faint);
-}
-.submit-grid dd { margin: 2px 0 0; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
-.submit-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-@media (max-width: 720px) {
-  .submit-grid { grid-template-columns: 1fr 1fr; }
-  .submit-actions .btn { flex: 1; min-height: 46px; }
-}
+/* ---------- mode pratinjau PDF setelah simpan: fokus ke kertas ---------- */
+.page.submit-preview .hero,
+.page.submit-preview main { display: none !important; }
 
 /* ---------- history ---------- */
 .history-list { display: flex; flex-direction: column; gap: 12px; }

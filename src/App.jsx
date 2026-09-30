@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import "./App.css";
-import Pimpinan from "./Pimpinan.jsx";
+import Pimpinan, { InspectionPage } from "./Pimpinan.jsx";
 import {
   PIMPINAN_WA_NUMBER,
   VEHICLES,
@@ -380,7 +380,16 @@ function App() {
     try {
       const result = await callGas("saveKesimpulan", data);
       if (!result?.success) throw new Error(result?.message || "Gagal menyimpan kesimpulan");
-      // Simpan ringkasan untuk tahap "Ajukan ke Pimpinan"
+      // Bangun record pratinjau PDF dari isian yang baru saja dilengkapi
+      // (hanya status per item — tanpa foto agar ringan disimpan lokal)
+      const previewSections = {};
+      Object.keys(SECTIONS).forEach((key) => {
+        const n = Number(key);
+        previewSections[n] = {
+          statuses: SECTIONS[n].items.map((_, i) => itemsBySection[n]?.[i]?.status || ""),
+        };
+      });
+      // Simpan untuk tahap pratinjau PDF + "Ajukan ke Pimpinan"
       persistSubmission({
         id: data.id,
         vehicleFull: data.tipeKendaraan,
@@ -392,10 +401,24 @@ function App() {
         kesimpulan: data.kesimpulan,
         diajukanAt: null,
         dismissed: false,
+        record: {
+          id: data.id,
+          tanggal: data.tanggal,
+          namaPemeriksa: data.namaPemeriksa,
+          koorPengelola: data.koorPengelola,
+          tipeKendaraan: data.tipeKendaraan,
+          kmKendaraan: data.kmKendaraan,
+          tanggalService: data.tanggalService,
+          bbm: bbm || "",
+          kesimpulan: data.kesimpulan,
+          catatan: data.catatan || "",
+          sections: previewSections,
+          issues: [],
+        },
       });
       await showSuccess(
         "Pemeriksaan selesai",
-        `Semua bagian ${vehicle.unit} (${vehicle.shortName}) berhasil disimpan. Lanjutkan dengan "Ajukan ke Pimpinan".`
+        `Pratinjau PDF ditampilkan di bawah. Lanjutkan dengan "Ajukan ke Pimpinan".`
       );
       resetForm();
     } catch (error) {
@@ -474,12 +497,24 @@ function App() {
   }, 0);
   const overallPct = Math.round((overallDone / 5) * 100);
 
+  const previewOpen = Boolean(lastSubmission?.record && !lastSubmission.dismissed);
+
+  // Judul dokumen = nama file saat pratinjau disimpan sebagai PDF
+  useEffect(() => {
+    if (view !== "form" || !previewOpen) return;
+    const prev = document.title;
+    document.title = `PDF E-Mon SAR - ${lastSubmission.unit} ${lastSubmission.short} - ${lastSubmission.tanggal}`;
+    return () => {
+      document.title = prev;
+    };
+  }, [view, previewOpen, lastSubmission]);
+
   if (view === "pimpinan") {
     return <Pimpinan onExit={() => setView("form")} />;
   }
 
   return (
-    <div className="page">
+    <div className={previewOpen ? "page report-mode submit-preview" : "page"}>
       <header className="topbar">
         <div className="topbar-inner">
           <div className="brand">
@@ -540,30 +575,20 @@ function App() {
           </div>
         </section>
 
-        {lastSubmission && !lastSubmission.dismissed && (
-          <section className="card submit-card" aria-label="Pengajuan ke pimpinan">
-            <div className="card-head">
-              <div>
-                <h2>
-                  {lastSubmission.diajukanAt
-                    ? "Menunggu validasi pimpinan"
-                    : "Siap diajukan ke pimpinan"}
-                </h2>
-                <p>
-                  {lastSubmission.diajukanAt
-                    ? "Pengajuan sudah dikirim. Pantau statusnya di Panel Pimpinan."
-                    : "Pemeriksaan sudah tersimpan. Klik tombol di bawah untuk mengajukan via WhatsApp."}
-                </p>
+        {lastSubmission?.record && !lastSubmission.dismissed && (
+          <>
+            <section className="report-paper" aria-label="Pratinjau PDF pemeriksaan">
+              <InspectionPage record={lastSubmission.record} />
+            </section>
+            <div className="action-bar">
+              <button type="button" className="btn ghost" onClick={dismissSubmission}>
+                ← {lastSubmission.diajukanAt ? "Tutup" : "Pemeriksaan Baru"}
+              </button>
+              <div className="action-hint report-hint">
+                {lastSubmission.diajukanAt ? "Menunggu validasi" : "PDF siap diajukan"}
+                {` • `}
+                <strong>{lastSubmission.unit} — {lastSubmission.short}</strong>
               </div>
-              <span className="card-no">{lastSubmission.diajukanAt ? "◷" : "➤"}</span>
-            </div>
-            <dl className="submit-grid">
-              <div><dt>Kendaraan</dt><dd>{lastSubmission.unit} — {lastSubmission.short}</dd></div>
-              <div><dt>Tanggal</dt><dd>{formatDateDisplay(lastSubmission.tanggal)}</dd></div>
-              <div><dt>Pemeriksa</dt><dd>{lastSubmission.namaPemeriksa}</dd></div>
-              <div><dt>Kesimpulan</dt><dd>{lastSubmission.kesimpulan}</dd></div>
-            </dl>
-            <div className="submit-actions">
               <button
                 type="button"
                 className="btn wa"
@@ -576,11 +601,8 @@ function App() {
                     ? "Kirim ulang via WhatsApp"
                     : "Ajukan ke Pimpinan via WhatsApp"}
               </button>
-              <button type="button" className="btn ghost" onClick={dismissSubmission}>
-                {lastSubmission.diajukanAt ? "Tutup" : "Nanti saja"}
-              </button>
             </div>
-          </section>
+          </>
         )}
 
         <main>

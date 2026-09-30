@@ -107,7 +107,7 @@ function SectionCheckTable({ no, record }) {
   );
 }
 
-function InspectionPage({ record }) {
+export function InspectionPage({ record }) {
   const v = parseVehicle(record);
   const catatan = record?.catatan && record.catatan !== "-" ? record.catatan : "";
   const bbm =
