@@ -38,7 +38,7 @@ export const VEHICLE_FULL = VEHICLES[0].fullName;
 // Nomor WhatsApp pimpinan (format internasional tanpa "+", tanpa spasi).
 // Contoh: 085930088301 -> 6285930088301. Ganti dengan nomor WA pimpinan.
 // Dipakai tombol "Ajukan ke Pimpinan" — chat terbuka dengan pesan terisi otomatis.
-export const PIMPINAN_WA_NUMBER = "6285930088301";
+export const PIMPINAN_WA_NUMBER = "62812490049088";
 
 // URL Web App Apps Script (paten). Ganti di sini kalau deploy ulang dengan URL baru.
 export const GAS_URL =
@@ -62,7 +62,10 @@ export function getConnectionMode() {
 function callEmbedded(method, args) {
   return new Promise((resolve, reject) => {
     try {
-      window.google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[method](...args);
+      window.google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(reject)
+        [method](...args);
     } catch (e) {
       reject(e);
     }
